@@ -1,0 +1,30 @@
+I want to develop a endi game here are the game details as a expert game developer, desiginer, architect come up with good looking game with just 5 levels for now which can be easily extendable.
+Also before you start creating game can you pull in the 3d character and terren that we will use in this game www.kenney.nl and other site with co lisence. Before we start we have to make sure UI looks good and we pick proper assets for it.
+
+Core fantasy
+You are Karma, a veteran Sherpa from Solukhumbu. Your mission is to guide foreign climbers safely to the summit of each of Nepal's great peaks — but the mountain has other plans. Navigate avalanches, altitude sickness, hidden crevasses, and ancient spirits to earn the respect of the mountain.
+
+Core loop
+Base camp → Climb section (platformer) → Checkpoint (save + resupply) → Summit push → Summit cutscene → Leaderboard + share → Next mountain unlocked
+Session length
+8–15 min per mountain
+Difficulty curve
+Gentle → brutal → meditative (Kanchenjunga)
+Audience
+Nepali youth, diaspora, trekking & mountaineering fans worldwide
+Monetisation
+itch.io PWYW · Ko-fi link · cosmetic Sherpa outfits (no P2W)
+
+Why Nepalis will love it
+Real mountains they know — Everest, Annapurna, Langtang, Manaslu, Kanchenjunga. Real culture — porter dialogue in Nepali, festivals as level events, yak encounters. A Sherpa as the hero, not the background character. A physics platformer where you play a Sherpa guiding climbers up Nepal's peaks. Navigate avalanches, blizzards, and altitude sickness. Each mountain is a unique level with Nepali geography and culture woven in.Also you can add your suggestins that can make game interesting and come up with short story for this like Leaderboard of fastest summit times and for now i want at leaset 5 levels
+
+Nepali language option Real mountain names Festival events
+
+5
+Mountains / levels
+
+Web + App
+Target platforms
+
+Game Engine 
+babylonjs
