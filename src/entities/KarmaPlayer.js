@@ -1,7 +1,4 @@
-import {
-  Vector3, Mesh, MeshBuilder, StandardMaterial, Color3,
-  KeyboardEventTypes, Scalar
-} from '@babylonjs/core';
+import { Vector3, KeyboardEventTypes } from '@babylonjs/core';
 
 export class KarmaPlayer {
   constructor(scene, assetManager) {
@@ -37,11 +34,9 @@ export class KarmaPlayer {
   }
 
   async create(startPosition) {
-    this.mesh = this.assetManager._buildCharacterFallback(
-      new Mesh('karma_root', this.scene), 'karma'
-    );
+    this.mesh = await this.assetManager.loadModel('karma');
     this.mesh.position.copyFrom(startPosition);
-    this.mesh.position.y += 0.1;
+    this.mesh.scaling.setAll(0.9);
 
     this._setupInput();
     this.summitStartTime = Date.now();

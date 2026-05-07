@@ -1,4 +1,4 @@
-import { Vector3, Mesh, MeshBuilder, StandardMaterial, Color3, Color4 } from '@babylonjs/core';
+import { Vector3, MeshBuilder, StandardMaterial, Color3 } from '@babylonjs/core';
 
 const ClimberState = {
   FOLLOWING: 'FOLLOWING',
@@ -39,11 +39,10 @@ export class ClimberNPC {
   }
 
   async create(startPosition) {
-    this.mesh = this.assetManager._buildCharacterFallback(
-      new Mesh(`climber_${this.index}_root`, this.scene), 'climber'
-    );
+    this.mesh = await this.assetManager.loadModel('climber');
     this.mesh.position.copyFrom(startPosition);
     this.mesh.position.x -= this.followDistance;
+    this.mesh.scaling.setAll(0.9);
 
     const nameMat = new StandardMaterial(`climber_${this.index}_indicator`, this.scene);
     nameMat.emissiveColor = new Color3(0.2, 0.8, 0.3);

@@ -14,6 +14,7 @@ import { TerrainBuilder } from '../utils/TerrainBuilder.js';
 import { AssetManager } from '../utils/AssetManager.js';
 import { HUD } from '../ui/HUD.js';
 import { GameState } from '../Game.js';
+import { PRELOAD_BASE, PRELOAD_NATURE, PRELOAD_PROPS, PRELOAD_CHARS } from '../utils/AssetManager.js';
 
 const Phase = {
   INTRO: 'INTRO',
@@ -73,6 +74,15 @@ export class GameScene {
     await this._setupLights();
     this._setupCamera();
     this.weatherSystem.applyWeatherProfile(this.config);
+
+    window.setBootProgress?.(30, 'Loading assets...');
+    await this.assetManager.preloadBatch([
+      ...PRELOAD_CHARS,
+      ...PRELOAD_BASE,
+      ...PRELOAD_NATURE,
+      ...PRELOAD_PROPS,
+    ]);
+    window.setBootProgress?.(80, 'Building terrain...');
 
     await this._loadSection(0);
     await this._spawnPlayer();

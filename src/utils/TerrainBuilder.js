@@ -1,7 +1,4 @@
-import {
-  MeshBuilder, StandardMaterial, Color3, Vector3, Mesh,
-  VertexData, VertexBuffer
-} from '@babylonjs/core';
+import { MeshBuilder, StandardMaterial, Color3, Vector3, Mesh } from '@babylonjs/core';
 
 function noise(x, y, seed = 0) {
   const s = Math.sin(x * 127.1 + y * 311.7 + seed) * 43758.5453;
@@ -136,14 +133,15 @@ export class TerrainBuilder {
   }
 
   _addRockCluster(x, y, z) {
-    const mat = this.assetManager.createRockMaterial('cluster_rock');
     const count = 2 + Math.floor(Math.random() * 3);
     for (let i = 0; i < count; i++) {
-      const r = MeshBuilder.CreatePolyhedron(`rock_${x}_${i}`, { type: 1, size: 0.3 + Math.random() * 0.5 }, this.scene);
-      r.material = mat;
-      r.position.set(x + (Math.random() - 0.5) * 2, y, z + (Math.random() - 0.5) * 2);
-      r.rotation.y = Math.random() * Math.PI;
-      this.meshes.push(r);
+      const rock = this.assetManager.randomRock(`rock_${i}_${x | 0}`);
+      const s = 0.4 + Math.random() * 0.7;
+      rock.scaling.setAll(s);
+      rock.position.set(x + (Math.random() - 0.5) * 2, y, z + (Math.random() - 0.5) * 2);
+      rock.rotation.y = Math.random() * Math.PI * 2;
+      rock.isPickable = false;
+      this.meshes.push(rock);
     }
   }
 
@@ -159,48 +157,61 @@ export class TerrainBuilder {
 
   _buildGroundClutter(section, isHigh, isVeryHigh) {
     if (isVeryHigh) return;
+    const isBaseCamp = section.id === 'base_camp';
     for (let i = 0; i < 8; i++) {
       const x = -50 + i * 15 + (Math.random() - 0.5) * 8;
+      const z = (Math.random() - 0.5) * 4;
       if (!isHigh) {
-        const tree = this.assetManager._buildTreeFallback(new Mesh(`tree_${i}`, this.scene));
-        tree.position.set(x, 0, (Math.random() - 0.5) * 4);
-        tree.scaling.setAll(0.6 + Math.random() * 0.4);
+        const tree = this.assetManager.randomTree(false, `tree_${i}`);
+        tree.position.set(x, 0, z);
+        tree.scaling.setAll(0.8 + Math.random() * 0.5);
+        tree.rotation.y = Math.random() * Math.PI * 2;
+        tree.isPickable = false;
         this.meshes.push(tree);
       } else {
-        this._addRockCluster(x, 0, (Math.random() - 0.5) * 4);
+        this._addRockCluster(x, 0, z);
       }
     }
+    if (isBaseCamp) this._addBaseCampProps();
+  }
+
+  _addBaseCampProps() {
+    // Tent cluster on the left side of base camp
+    const tent = this.assetManager.spawnClone('tent', 'base_tent');
+    tent.position.set(-28, 0, 2);
+    tent.rotation.y = Math.PI / 6;
+    tent.scaling.setAll(1.5);
+    tent.isPickable = false;
+    this.meshes.push(tent);
+
+    const tentSmall = this.assetManager.spawnClone('tent_small', 'base_tent_small');
+    tentSmall.position.set(-22, 0, -2);
+    tentSmall.rotation.y = -Math.PI / 4;
+    tentSmall.scaling.setAll(1.4);
+    tentSmall.isPickable = false;
+    this.meshes.push(tentSmall);
+
+    // Campfire between tents
+    const fire = this.assetManager.spawnClone('campfire', 'base_fire');
+    fire.position.set(-25, 0, 0);
+    fire.scaling.setAll(1.2);
+    fire.isPickable = false;
+    this.meshes.push(fire);
+
+    // Oxygen/supply chest near checkpoint
+    const chest = this.assetManager.spawnClone('supply_chest', 'base_chest');
+    chest.position.set(-18, 0, 1);
+    chest.rotation.y = Math.PI / 3;
+    chest.scaling.setAll(1.3);
+    chest.isPickable = false;
+    this.meshes.push(chest);
   }
 
   buildCheckpointMarker(position) {
-    const flag = new Mesh('checkpoint_root', this.scene);
-
-    const poleMat = new StandardMaterial('flag_pole_mat', this.scene);
-    poleMat.diffuseColor = new Color3(0.7, 0.65, 0.6);
-    const pole = MeshBuilder.CreateCylinder('flag_pole', { height: 4, diameter: 0.08 }, this.scene);
-    pole.material = poleMat;
-    pole.parent = flag;
-    pole.position.y = 2;
-
-    const colors = [
-      new Color3(0.1, 0.4, 0.9),
-      new Color3(1, 1, 1),
-      new Color3(0.8, 0.1, 0.1),
-      new Color3(0.1, 0.6, 0.1),
-      new Color3(0.95, 0.65, 0.1)
-    ];
-    colors.forEach((c, ci) => {
-      const fMat = new StandardMaterial(`cp_flag_mat_${ci}`, this.scene);
-      fMat.diffuseColor = c;
-      fMat.backFaceCulling = false;
-      const f = MeshBuilder.CreatePlane(`cp_flag_${ci}`, { width: 0.6, height: 0.4 }, this.scene);
-      f.material = fMat;
-      f.parent = flag;
-      f.position.set(0.3, 3.5 - ci * 0.3, 0);
-      f.rotation.y = Math.PI / 2;
-    });
-
+    const flag = this.assetManager.spawnClone('goal_flag', 'checkpoint_flag');
+    flag.scaling.setAll(1.8);
     flag.position.copyFrom(position);
+    flag.isPickable = false;
     this.meshes.push(flag);
     return flag;
   }

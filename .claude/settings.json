@@ -23,7 +23,14 @@
       "Read(//Users/dipenlama/**)",
       "Bash(npm run *)",
       "Bash(curl -s http://localhost:5174/)",
-      "Bash(curl -s http://localhost:5174/src/Game.js)"
+      "Bash(curl -s http://localhost:5174/src/Game.js)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('buffers:', [b.get\\('uri','embedded'\\) for b in d.get\\('buffers',[]\\)][:3]\\); print\\('images:', [i.get\\('uri','embedded'\\) for i in d.get\\('images',[]\\)][:5]\\)\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('buffers:', [b.get\\('uri','embedded'\\) for b in d.get\\('buffers',[]\\)][:3]\\)\")",
+      "Bash(awk -F/ '{print $NF}')",
+      "Bash(curl -s http://localhost:5174/src/utils/AssetManager.js)",
+      "Bash(curl -s http://localhost:5174/src/utils/TerrainBuilder.js)",
+      "Bash(curl -s http://localhost:5174/src/entities/KarmaPlayer.js)",
+      "Bash(curl -s http://localhost:5174/src/entities/ClimberNPC.js)"
     ]
   }
 }
