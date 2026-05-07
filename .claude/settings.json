@@ -20,7 +20,10 @@
       "Bash(ls ~/Downloads/)",
       "Read(//Users/dipenlama/Downloads//**)",
       "Bash(ls ~/ | head -20)",
-      "Read(//Users/dipenlama/**)"
+      "Read(//Users/dipenlama/**)",
+      "Bash(npm run *)",
+      "Bash(curl -s http://localhost:5174/)",
+      "Bash(curl -s http://localhost:5174/src/Game.js)"
     ]
   }
 }

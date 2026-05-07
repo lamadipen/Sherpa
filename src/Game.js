@@ -75,13 +75,14 @@ export class Game {
       this.currentScene = null;
     }
 
+    this.engine.stopRenderLoop();
     this.state = newState;
 
     switch (newState) {
       case GameState.LOADING:
         this.currentScene = new LoadingScene(this);
-        await this.currentScene.create();
         this.currentScene.onComplete = () => this.transitionTo(GameState.MAIN_MENU);
+        await this.currentScene.create();
         break;
 
       case GameState.MAIN_MENU:

@@ -84,14 +84,13 @@ export class GameScene {
 
     this._showIntroCard();
 
-    engine.runRenderLoop(() => {
+    this.scene.registerBeforeRender(() => {
       if (!this._isPaused) {
         const now = performance.now();
         const dt = Math.min((now - (this._lastTime || now)) / 1000, 0.05);
         this._lastTime = now;
         this._update(dt);
       }
-      this.scene?.render();
     });
   }
 

@@ -27,8 +27,6 @@ export class MainMenuScene {
     this._buildSnowParticles();
     this._buildPrayerFlags();
     this._buildGUI();
-
-    engine.runRenderLoop(() => this.scene?.render());
   }
 
   _setupCamera() {
