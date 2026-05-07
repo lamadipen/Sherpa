@@ -67,30 +67,34 @@ export class MainMenuScene {
     ground.material = snowMat;
     ground.position.y = -8;
 
-    // Background peaks
+    // Background peaks — wide bases so they read as mountains, not cones
+    // h/diameter kept around 0.6 for a proper Himalayan silhouette
     const peaks = [
-      { x: 0, z: -25, h: 40, r: 18, tess: 8 },
-      { x: -22, z: -20, h: 28, r: 12, tess: 6 },
-      { x: 22, z: -22, h: 32, r: 14, tess: 7 },
-      { x: -40, z: -15, h: 22, r: 10, tess: 6 },
-      { x: 40, z: -18, h: 25, r: 11, tess: 6 },
+      { x: 0,   z: -28, h: 36, d: 60, tess: 10 }, // central massive (Sagarmatha)
+      { x: -32, z: -22, h: 28, d: 46, tess: 8  }, // left shoulder
+      { x: 30,  z: -24, h: 30, d: 50, tess: 8  }, // right shoulder
+      { x: -58, z: -16, h: 22, d: 38, tess: 7  }, // far left ridge
+      { x: 55,  z: -18, h: 24, d: 42, tess: 7  }, // far right ridge
     ];
 
     peaks.forEach((p, i) => {
-      const mt = MeshBuilder.CreateCylinder(`bg_peak_${i}`, {
-        height: p.h, diameterTop: 0, diameterBottom: p.r, tessellation: p.tess
+      // Rock face body
+      const body = MeshBuilder.CreateCylinder(`bg_peak_${i}`, {
+        height: p.h, diameterTop: 1, diameterBottom: p.d, tessellation: p.tess
       }, this.scene);
-      mt.material = i === 0 ? snowMat : (i % 2 === 0 ? snowMat : rockMat);
-      mt.position.set(p.x, p.h / 2 - 8 - 3, p.z);
+      body.material = rockMat;
+      body.position.set(p.x, p.h / 2 - 8, p.z);
+      body.isPickable = false;
 
-      // Snow cap
-      if (i > 0) {
-        const cap = MeshBuilder.CreateCylinder(`cap_${i}`, {
-          height: p.h * 0.4, diameterTop: 0, diameterBottom: p.r * 0.5, tessellation: p.tess
-        }, this.scene);
-        cap.material = snowMat;
-        cap.position.set(p.x, p.h * 0.8 - 8, p.z);
-      }
+      // Snow covering the upper 55% of every peak
+      const snowH = p.h * 0.55;
+      const snowD = p.d * (1 - 0.55) + 2; // diameter at 45% up the slope
+      const snow = MeshBuilder.CreateCylinder(`bg_snow_${i}`, {
+        height: snowH, diameterTop: 1, diameterBottom: snowD, tessellation: p.tess
+      }, this.scene);
+      snow.material = snowMat;
+      snow.position.set(p.x, p.h - snowH / 2 - 8, p.z);
+      snow.isPickable = false;
     });
 
     // Foreground snow field with drifts

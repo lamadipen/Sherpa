@@ -164,7 +164,7 @@ export class TerrainBuilder {
       if (!isHigh) {
         const tree = this.assetManager.randomTree(false, `tree_${i}`);
         tree.position.set(x, 0, z);
-        tree.scaling.setAll(0.8 + Math.random() * 0.5);
+        tree.scaling.setAll(0.25 + Math.random() * 0.15);
         tree.rotation.y = Math.random() * Math.PI * 2;
         tree.isPickable = false;
         this.meshes.push(tree);
