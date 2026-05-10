@@ -47,6 +47,7 @@ export class GameScene {
     this.phase = Phase.INTRO;
     this.currentSectionIndex = 0;
     this.sectionTransitioning = false;
+    this.expeditionRisk = 0;
 
     this.camera = null;
     this.shadowGenerator = null;
@@ -216,6 +217,13 @@ export class GameScene {
       c.update(dt, this.player.mesh.position, this.platforms, altState);
       return c.getStatus();
     });
+    const avgTeamHealth = climberStatuses.length
+      ? climberStatuses.reduce((sum, c) => sum + c.health, 0) / climberStatuses.length
+      : 100;
+    const weatherRisk = weatherState.avalancheActive ? 1 : weatherState.avalancheWarning ? 0.7 : Math.min(0.45, Math.abs(weatherState.windX ?? 0) * 0.4);
+    const oxygenRisk = 1 - altState.oxygen;
+    const teamRisk = 1 - avgTeamHealth / 100;
+    this.expeditionRisk = Math.max(weatherRisk, oxygenRisk * 0.65, teamRisk);
 
     // Check hazard collisions
     const hazardHits = this.hazardSystem.checkCollisions(this.player.mesh.position);
@@ -254,7 +262,10 @@ export class GameScene {
       climbers: climberStatuses,
       weather: weatherState,
       elapsedMs: this.player.getElapsedTime(),
-      sectionLabel: this.config.sections[this.currentSectionIndex]?.label ?? ''
+      sectionLabel: this.config.sections[this.currentSectionIndex]?.label ?? '',
+      objective: this.config.sections[this.currentSectionIndex]?.objective ?? 'Follow the fixed rope toward the next camp.',
+      routeProgress: Math.max(0, Math.min(1, this.player.sectionProgress)),
+      expeditionRisk: this.expeditionRisk
     });
 
     // Altitude danger warning
@@ -410,7 +421,7 @@ export class GameScene {
     card.addControl(story);
 
     const hint = new TextBlock('introHint');
-    hint.text = 'WASD / Arrow Keys to move  ·  Space to jump  ·  E to help climbers  ·  ESC to pause';
+    hint.text = 'Guide the rope team: move with WASD / arrows, jump with Space, help climbers with E, pause with ESC';
     hint.color = 'rgba(120, 150, 200, 0.5)';
     hint.fontSize = 11;
     hint.fontFamily = 'Rajdhani, sans-serif';

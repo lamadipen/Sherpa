@@ -7,9 +7,9 @@ export const LEVEL_CONFIGS = [
     difficulty: 1,
     difficultyLabel: 'Beginner',
     region: 'Langtang National Park',
-    description: 'The valley of glaciers. Your first real test as a guide — lead a family of trekkers through the sacred Langtang Valley where yaks roam freely and rhododendrons bloom.',
-    storyIntro: 'Spring, 2024. A Japanese family has hired you for their dream trek. The valley is alive with the Yak Festival. But ancient stones at the glacier whisper of spirits disturbed.',
-    summaryQuote: '"The mountain does not care how strong you are. It cares how wise you are." — Pasang Sherpa, 1987',
+    description: 'A living glacier route through villages, prayer flag passes, blue ice bridges, and a wind-cut summit ridge. Your job is not only to climb, but to keep the rope team calm, breathing, and moving.',
+    storyIntro: 'Spring, 2024. You are Karma Sherpa, hired to guide two first-time climbers from Langtang Village toward Lirung Glacier. The Yak Festival drums fade behind you as the fixed ropes vanish into cloud.',
+    summaryQuote: '"A good guide reaches the summit twice: once with their feet, once with everyone alive." — Pasang Sherpa, 1987',
     culturalEvent: 'Yak Festival',
     season: 'Spring',
     skyColor: { r: 0.4, g: 0.6, b: 0.9 },
@@ -18,11 +18,56 @@ export const LEVEL_CONFIGS = [
     snowIntensity: 0.2,
     windStrength: 0.3,
     sections: [
-      { id: 'base_camp', label: 'Langtang Village', altitude: 3430, platforms: 8, hazards: [], weather: 'clear' },
-      { id: 'approach', label: 'Glacier Approach', altitude: 4800, platforms: 12, hazards: ['rockfall'], weather: 'light_snow' },
-      { id: 'snowfield', label: 'Lirung Glacier', altitude: 5900, platforms: 10, hazards: ['crevasse'], weather: 'snow' },
-      { id: 'summit_push', label: 'Summit Ridge', altitude: 7000, platforms: 8, hazards: ['avalanche'], weather: 'storm' },
-      { id: 'summit', label: 'Langtang Lirung Summit', altitude: 7227, platforms: 3, hazards: [], weather: 'clear' }
+      {
+        id: 'base_camp',
+        label: 'Langtang Village Puja',
+        altitude: 3430,
+        platforms: 9,
+        hazards: [],
+        weather: 'clear',
+        objective: 'Brief the team, leave the village, and clip into the fixed rope.',
+        routeFeatures: ['prayer_flags']
+      },
+      {
+        id: 'approach',
+        label: 'Moraine Rockfall Traverse',
+        altitude: 4800,
+        platforms: 13,
+        hazards: ['rockfall'],
+        weather: 'light_snow',
+        objective: 'Cross unstable moraine while keeping the clients close.',
+        routeFeatures: ['prayer_flags']
+      },
+      {
+        id: 'snowfield',
+        label: 'Lirung Glacier Ladder',
+        altitude: 5900,
+        platforms: 11,
+        hazards: ['crevasse'],
+        weather: 'snow',
+        objective: 'Step over hidden crevasses and protect the rope team.',
+        routeFeatures: ['ladder_crossing', 'serac_wall']
+      },
+      {
+        id: 'summit_push',
+        label: 'Storm Ridge Fixed Line',
+        altitude: 7000,
+        platforms: 9,
+        hazards: ['avalanche', 'high_wind'],
+        weather: 'storm',
+        objective: 'Move between route wands before the storm closes in.',
+        routeFeatures: ['summit_ridge', 'serac_wall']
+      },
+      {
+        id: 'summit',
+        label: 'Langtang Lirung Summit',
+        altitude: 7227,
+        platforms: 4,
+        hazards: [],
+        weather: 'clear',
+        objective: 'Bring the team to the final prayer flags.',
+        routeFeatures: ['summit_ridge', 'prayer_flags']
+      }
     ],
     spirits: [
       { name: 'Glacier Guardian', triggerAltitude: 5900, dialogue: 'तिमीले हाम्रो हिउँलाई किन अपवित्र पारिरहेछौ?' }

@@ -48,6 +48,9 @@ export class HUD {
     // Section label
     this.sectionLabel = this._createSectionLabel();
     this.gui.addControl(this.sectionLabel);
+
+    this.objectivePanel = this._createObjectivePanel();
+    this.gui.addControl(this.objectivePanel);
   }
 
   _createPanel(name, width, height, hAlign, vAlign, left = 0, top = 0) {
@@ -258,11 +261,73 @@ export class HUD {
     label.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
     label.left = '16px';
     label.top = '16px';
+    label.isHitTestVisible = false;
     return label;
   }
 
+  _createObjectivePanel() {
+    const panel = new Rectangle('objectivePanel');
+    panel.width = '360px';
+    panel.height = '86px';
+    panel.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
+    panel.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
+    panel.left = '16px';
+    panel.top = '48px';
+    panel.background = 'rgba(6, 12, 24, 0.72)';
+    panel.color = 'rgba(180, 210, 240, 0.26)';
+    panel.thickness = 1;
+    panel.cornerRadius = 6;
+
+    this.objectiveText = new TextBlock('objectiveText');
+    this.objectiveText.text = 'Clip into the fixed rope.';
+    this.objectiveText.color = 'rgba(230, 238, 248, 0.88)';
+    this.objectiveText.fontSize = 13;
+    this.objectiveText.fontFamily = 'Rajdhani, sans-serif';
+    this.objectiveText.textWrapping = true;
+    this.objectiveText.width = '328px';
+    this.objectiveText.height = '42px';
+    this.objectiveText.top = '-14px';
+    this.objectiveText.isHitTestVisible = false;
+    panel.addControl(this.objectiveText);
+
+    const track = new Rectangle('routeProgressTrack');
+    track.width = '328px';
+    track.height = '7px';
+    track.top = '26px';
+    track.background = 'rgba(255,255,255,0.12)';
+    track.color = 'transparent';
+    track.cornerRadius = 3;
+    panel.addControl(track);
+
+    this.routeProgressFill = new Rectangle('routeProgressFill');
+    this.routeProgressFill.width = '0px';
+    this.routeProgressFill.height = '7px';
+    this.routeProgressFill.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
+    this.routeProgressFill.left = '16px';
+    this.routeProgressFill.top = '26px';
+    this.routeProgressFill.background = '#f0a500';
+    this.routeProgressFill.color = 'transparent';
+    this.routeProgressFill.cornerRadius = 3;
+    panel.addControl(this.routeProgressFill);
+
+    this.routeProgressText = new TextBlock('routeProgressText');
+    this.routeProgressText.text = 'ROUTE 0%';
+    this.routeProgressText.color = 'rgba(180, 200, 230, 0.66)';
+    this.routeProgressText.fontSize = 10;
+    this.routeProgressText.fontFamily = 'Rajdhani, sans-serif';
+    this.routeProgressText.letterSpacing = 2;
+    this.routeProgressText.top = '42px';
+    this.routeProgressText.isHitTestVisible = false;
+    panel.addControl(this.routeProgressText);
+
+    return panel;
+  }
+
   update(state) {
-    const { altitude, oxygen, stamina, climbers, weather, elapsedMs, sectionLabel } = state;
+    const {
+      altitude, oxygen, stamina, climbers, weather, elapsedMs,
+      sectionLabel, objective, routeProgress, expeditionRisk
+    } = state;
 
     // Altitude
     this.altitudeText.text = altitude.toLocaleString() + ' m';
@@ -320,6 +385,19 @@ export class HUD {
     // Section label
     if (sectionLabel) {
       this.sectionLabel.text = sectionLabel.toUpperCase();
+    }
+
+    if (objective) {
+      this.objectiveText.text = objective;
+    }
+    if (routeProgress !== undefined) {
+      const pct = Math.max(0, Math.min(1, routeProgress));
+      this.routeProgressFill.width = `${Math.floor(pct * 328)}px`;
+      this.routeProgressText.text = `ROUTE ${Math.floor(pct * 100)}%`;
+    }
+    if (expeditionRisk !== undefined) {
+      const risk = Math.max(0, Math.min(1, expeditionRisk));
+      this.routeProgressFill.background = risk > 0.68 ? '#ef4444' : risk > 0.38 ? '#f0a500' : '#4ade80';
     }
   }
 

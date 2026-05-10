@@ -1,4 +1,6 @@
-import { Vector3, KeyboardEventTypes } from '@babylonjs/core';
+import {
+  Vector3, KeyboardEventTypes, MeshBuilder, StandardMaterial, Color3
+} from '@babylonjs/core';
 
 export class KarmaPlayer {
   constructor(scene, assetManager) {
@@ -31,12 +33,14 @@ export class KarmaPlayer {
 
     this._jumpBuffer = 0;
     this._coyoteTime = 0;
+    this._walkTime = 0;
   }
 
   async create(startPosition) {
     this.mesh = await this.assetManager.loadModel('karma');
     this.mesh.position.copyFrom(startPosition);
     this.mesh.scaling.setAll(0.9);
+    this._dressAsLowPolySherpa();
 
     this._setupInput();
     this.summitStartTime = Date.now();
@@ -92,6 +96,7 @@ export class KarmaPlayer {
     if (this.keys.right) { moveX = 1; this.isFacingRight = true; }
 
     this.mesh.rotation.y = this.isFacingRight ? 0 : Math.PI;
+    this._animateSherpa(dt, Math.abs(moveX));
 
     // Stamina
     if (isSprinting && moveX !== 0) {
@@ -162,6 +167,97 @@ export class KarmaPlayer {
       progress: this.sectionProgress,
       wantsInteract: this.keys.interact
     };
+  }
+
+  _dressAsLowPolySherpa() {
+    const jacketMat = new StandardMaterial('karma_sherpa_jacket', this.scene);
+    jacketMat.diffuseColor = new Color3(0.78, 0.12, 0.08);
+    jacketMat.specularColor = new Color3(0.08, 0.06, 0.04);
+
+    const pantsMat = new StandardMaterial('karma_sherpa_pants', this.scene);
+    pantsMat.diffuseColor = new Color3(0.06, 0.09, 0.13);
+
+    const skinMat = new StandardMaterial('karma_sherpa_skin', this.scene);
+    skinMat.diffuseColor = new Color3(0.72, 0.48, 0.32);
+
+    const woolMat = new StandardMaterial('karma_sherpa_wool', this.scene);
+    woolMat.diffuseColor = new Color3(0.96, 0.9, 0.76);
+
+    const ropeMat = new StandardMaterial('karma_sherpa_rope', this.scene);
+    ropeMat.diffuseColor = new Color3(0.95, 0.72, 0.28);
+
+    const metalMat = new StandardMaterial('karma_sherpa_metal', this.scene);
+    metalMat.diffuseColor = new Color3(0.55, 0.65, 0.72);
+    metalMat.specularColor = new Color3(0.5, 0.55, 0.6);
+
+    const body = MeshBuilder.CreateBox('karma_sherpa_parka', { width: 0.85, height: 1.15, depth: 0.45 }, this.scene);
+    body.material = jacketMat;
+    body.parent = this.mesh;
+    body.position.y = 1.08;
+
+    const head = MeshBuilder.CreateSphere('karma_sherpa_face', { diameter: 0.45, segments: 8 }, this.scene);
+    head.material = skinMat;
+    head.parent = this.mesh;
+    head.position.y = 1.82;
+
+    const hat = MeshBuilder.CreateCylinder('karma_sherpa_hat', {
+      height: 0.2, diameterTop: 0.38, diameterBottom: 0.58, tessellation: 8
+    }, this.scene);
+    hat.material = woolMat;
+    hat.parent = this.mesh;
+    hat.position.y = 2.1;
+
+    const pack = MeshBuilder.CreateBox('karma_sherpa_pack', { width: 0.55, height: 0.82, depth: 0.32 }, this.scene);
+    pack.material = new StandardMaterial('karma_sherpa_pack_mat', this.scene);
+    pack.material.diffuseColor = new Color3(0.1, 0.32, 0.22);
+    pack.parent = this.mesh;
+    pack.position.set(0, 1.08, -0.43);
+
+    const rope = MeshBuilder.CreateTorus('karma_sherpa_rope_coil', {
+      diameter: 0.55, thickness: 0.055, tessellation: 16
+    }, this.scene);
+    rope.material = ropeMat;
+    rope.parent = this.mesh;
+    rope.rotation.x = Math.PI / 2;
+    rope.position.set(0.39, 1.32, -0.18);
+
+    this._leftLeg = MeshBuilder.CreateBox('karma_sherpa_left_leg', { width: 0.22, height: 0.78, depth: 0.24 }, this.scene);
+    this._rightLeg = MeshBuilder.CreateBox('karma_sherpa_right_leg', { width: 0.22, height: 0.78, depth: 0.24 }, this.scene);
+    [this._leftLeg, this._rightLeg].forEach((leg, i) => {
+      leg.material = pantsMat;
+      leg.parent = this.mesh;
+      leg.position.set(i === 0 ? -0.22 : 0.22, 0.42, 0);
+    });
+
+    const axe = MeshBuilder.CreateCylinder('karma_sherpa_ice_axe', {
+      height: 1.15, diameter: 0.045, tessellation: 6
+    }, this.scene);
+    axe.material = metalMat;
+    axe.parent = this.mesh;
+    axe.rotation.z = 0.45;
+    axe.position.set(-0.58, 1.1, 0.02);
+
+    const pick = MeshBuilder.CreateBox('karma_sherpa_ice_axe_pick', { width: 0.38, height: 0.045, depth: 0.055 }, this.scene);
+    pick.material = metalMat;
+    pick.parent = axe;
+    pick.position.y = 0.56;
+
+    const scarf = MeshBuilder.CreateBox('karma_sherpa_scarf', { width: 0.72, height: 0.12, depth: 0.5 }, this.scene);
+    scarf.material = ropeMat;
+    scarf.parent = this.mesh;
+    scarf.position.y = 1.55;
+  }
+
+  _animateSherpa(dt, moveAmount) {
+    if (!this._leftLeg || !this._rightLeg) return;
+    if (moveAmount > 0 && this.isGrounded) {
+      this._walkTime += dt * 8;
+    } else {
+      this._walkTime += dt * 2;
+    }
+    const stride = Math.sin(this._walkTime) * (moveAmount > 0 && this.isGrounded ? 0.18 : 0.04);
+    this._leftLeg.rotation.x = stride;
+    this._rightLeg.rotation.x = -stride;
   }
 
   _resolvePlatformCollisions() {

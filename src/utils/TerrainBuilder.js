@@ -99,11 +99,133 @@ export class TerrainBuilder {
 
     // Background mountain silhouettes
     this._buildBackgroundMountains(levelConfig, sectionIndex);
+    this._buildExpeditionRoute(platforms, section, isHigh, isVeryHigh);
 
     // Foreground ground clutter
     this._buildGroundClutter(section, isHigh, isVeryHigh);
 
     return platforms;
+  }
+
+  _buildExpeditionRoute(platforms, section, isHigh, isVeryHigh) {
+    if (platforms.length < 2) return;
+
+    const routeMat = new StandardMaterial(`fixed_rope_${section.id}`, this.scene);
+    routeMat.diffuseColor = isVeryHigh ? new Color3(0.95, 0.35, 0.2) : new Color3(0.95, 0.75, 0.25);
+    routeMat.emissiveColor = routeMat.diffuseColor.scale(0.15);
+
+    const points = platforms
+      .slice(1)
+      .map(p => p.position.add(new Vector3(0, 1.0, 2.15)));
+
+    const rope = MeshBuilder.CreateTube(`route_rope_${section.id}`, {
+      path: points,
+      radius: 0.035,
+      tessellation: 6
+    }, this.scene);
+    rope.material = routeMat;
+    rope.isPickable = false;
+    this.meshes.push(rope);
+
+    points.forEach((pt, i) => {
+      if (i % 2 !== 0) return;
+      this._addRouteStake(pt.x, pt.y - 0.65, pt.z, routeMat);
+    });
+
+    const routeFeatures = section.routeFeatures ?? [];
+    if (routeFeatures.includes('prayer_flags')) {
+      this._addPrayerFlagLine(points[Math.floor(points.length * 0.25)] ?? points[0]);
+    }
+    if (routeFeatures.includes('ladder_crossing')) {
+      this._addLadderCrossing(points[Math.floor(points.length * 0.45)] ?? points[0]);
+    }
+    if (routeFeatures.includes('serac_wall')) {
+      this._addSeracWall(points[Math.floor(points.length * 0.55)] ?? points[0]);
+    }
+    if (routeFeatures.includes('summit_ridge')) {
+      this._addSummitRidgeMarkers(points.slice(-3));
+    }
+  }
+
+  _addRouteStake(x, y, z, mat) {
+    const stake = MeshBuilder.CreateCylinder('route_stake', { height: 1.45, diameter: 0.06, tessellation: 6 }, this.scene);
+    stake.material = mat;
+    stake.position.set(x, y, z);
+    stake.isPickable = false;
+    this.meshes.push(stake);
+  }
+
+  _addPrayerFlagLine(anchor) {
+    const colors = [
+      new Color3(0.05, 0.25, 0.9),
+      new Color3(0.95, 0.95, 0.9),
+      new Color3(0.85, 0.05, 0.08),
+      new Color3(0.1, 0.55, 0.15),
+      new Color3(0.95, 0.72, 0.05)
+    ];
+
+    for (let i = 0; i < 10; i++) {
+      const mat = new StandardMaterial(`route_prayer_flag_${i}`, this.scene);
+      mat.diffuseColor = colors[i % colors.length];
+      mat.backFaceCulling = false;
+
+      const flag = MeshBuilder.CreatePlane('route_prayer_flag', { width: 0.75, height: 0.5 }, this.scene);
+      flag.material = mat;
+      flag.position.set(anchor.x - 3.5 + i * 0.8, anchor.y + Math.sin(i * 0.7) * 0.2 + 0.8, anchor.z + 0.15);
+      flag.rotation.y = Math.PI / 8;
+      flag.isPickable = false;
+      this.meshes.push(flag);
+    }
+  }
+
+  _addLadderCrossing(anchor) {
+    const woodMat = new StandardMaterial('ladder_wood', this.scene);
+    woodMat.diffuseColor = new Color3(0.55, 0.34, 0.18);
+    const railA = MeshBuilder.CreateBox('crevasse_ladder_rail_a', { width: 5.5, height: 0.08, depth: 0.08 }, this.scene);
+    const railB = MeshBuilder.CreateBox('crevasse_ladder_rail_b', { width: 5.5, height: 0.08, depth: 0.08 }, this.scene);
+    [railA, railB].forEach((rail, i) => {
+      rail.material = woodMat;
+      rail.position.set(anchor.x, anchor.y - 0.8, anchor.z + (i === 0 ? -0.45 : 0.45));
+      rail.isPickable = false;
+      this.meshes.push(rail);
+    });
+
+    for (let i = 0; i < 7; i++) {
+      const rung = MeshBuilder.CreateBox('crevasse_ladder_rung', { width: 0.1, height: 0.08, depth: 1.1 }, this.scene);
+      rung.material = woodMat;
+      rung.position.set(anchor.x - 2.4 + i * 0.8, anchor.y - 0.78, anchor.z);
+      rung.isPickable = false;
+      this.meshes.push(rung);
+    }
+  }
+
+  _addSeracWall(anchor) {
+    const iceMat = this.assetManager.createIceMaterial('serac_ice');
+    for (let i = 0; i < 6; i++) {
+      const shard = MeshBuilder.CreateBox('serac_shard', {
+        width: 1.2 + Math.random(),
+        height: 4 + Math.random() * 3,
+        depth: 1.2 + Math.random()
+      }, this.scene);
+      shard.material = iceMat;
+      shard.position.set(anchor.x - 4 + i * 1.6, anchor.y + 1.2 + Math.random(), anchor.z - 2.6);
+      shard.rotation.z = (Math.random() - 0.5) * 0.35;
+      shard.isPickable = false;
+      this.meshes.push(shard);
+    }
+  }
+
+  _addSummitRidgeMarkers(points) {
+    const markerMat = new StandardMaterial('summit_wand_mat', this.scene);
+    markerMat.diffuseColor = new Color3(0.95, 0.2, 0.12);
+    points.forEach((pt, i) => {
+      const wand = MeshBuilder.CreateCylinder('summit_wand', { height: 1.8, diameter: 0.05, tessellation: 6 }, this.scene);
+      wand.material = markerMat;
+      wand.position.set(pt.x, pt.y - 0.4, pt.z + (i % 2 === 0 ? 0.35 : -0.35));
+      wand.rotation.z = 0.15;
+      wand.isPickable = false;
+      this.meshes.push(wand);
+    });
   }
 
   _buildBackgroundMountains(levelConfig, sectionIndex) {
@@ -205,6 +327,23 @@ export class TerrainBuilder {
     chest.scaling.setAll(1.3);
     chest.isPickable = false;
     this.meshes.push(chest);
+
+    const ropeMat = new StandardMaterial('base_rope_mat', this.scene);
+    ropeMat.diffuseColor = new Color3(0.95, 0.72, 0.28);
+    const rope = MeshBuilder.CreateTorus('base_rope_coil', { diameter: 1.2, thickness: 0.08, tessellation: 18 }, this.scene);
+    rope.material = ropeMat;
+    rope.position.set(-15.5, 0.25, 1.4);
+    rope.rotation.x = Math.PI / 2;
+    rope.isPickable = false;
+    this.meshes.push(rope);
+
+    const tableMat = new StandardMaterial('base_route_table_mat', this.scene);
+    tableMat.diffuseColor = new Color3(0.45, 0.26, 0.12);
+    const routeTable = MeshBuilder.CreateBox('base_route_table', { width: 2.3, height: 0.18, depth: 1.2 }, this.scene);
+    routeTable.material = tableMat;
+    routeTable.position.set(-20, 0.75, 1.5);
+    routeTable.isPickable = false;
+    this.meshes.push(routeTable);
   }
 
   buildCheckpointMarker(position) {
