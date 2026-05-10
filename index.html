@@ -168,8 +168,12 @@
 
     // Boot progress updater (called from main.js)
     window.setBootProgress = (pct, status) => {
-      document.getElementById('bootProgress').style.width = pct + '%';
-      document.getElementById('bootStatus').textContent = status;
+      const progress = document.getElementById('bootProgress');
+      const bootStatus = document.getElementById('bootStatus');
+      if (!progress || !bootStatus) return;
+
+      progress.style.width = pct + '%';
+      bootStatus.textContent = status;
     };
 
     window.hideBootScreen = () => {
