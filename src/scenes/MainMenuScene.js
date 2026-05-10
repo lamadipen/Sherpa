@@ -27,6 +27,11 @@ export class MainMenuScene {
     this._buildSnowParticles();
     this._buildPrayerFlags();
     this._buildGUI();
+
+    // Debug: confirm raw canvas events reach the page
+    const canvas = engine.getRenderingCanvas();
+    canvas.addEventListener('pointerdown', (e) => console.log(`[CANVAS] pointerdown at (${e.offsetX}, ${e.offsetY})`));
+    canvas.addEventListener('pointerup',   (e) => console.log(`[CANVAS] pointerup at (${e.offsetX}, ${e.offsetY})`));
   }
 
   _setupCamera() {
@@ -214,6 +219,7 @@ export class MainMenuScene {
     overlay.background = 'linear-gradient(transparent, rgba(5, 8, 20, 0.95))';
     overlay.color = 'transparent';
     overlay.thickness = 0;
+    overlay.isHitTestVisible = false;
     this.gui.addControl(overlay);
 
     // Mountain name (top) - Everest in the background
@@ -226,6 +232,7 @@ export class MainMenuScene {
     mountainName.top = '16px';
     mountainName.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
     mountainName.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
+    mountainName.isHitTestVisible = false;
     this.gui.addControl(mountainName);
 
     // Main title
@@ -241,6 +248,7 @@ export class MainMenuScene {
     title.top = '-120px';
     title.shadowColor = 'rgba(192, 57, 43, 0.6)';
     title.shadowBlur = 40;
+    title.isHitTestVisible = false;
     this.gui.addControl(title);
 
     // Nepali subtitle
@@ -252,6 +260,7 @@ export class MainMenuScene {
     nepaliTitle.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
     nepaliTitle.verticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
     nepaliTitle.top = '-60px';
+    nepaliTitle.isHitTestVisible = false;
     this.gui.addControl(nepaliTitle);
 
     // Tagline
@@ -264,6 +273,7 @@ export class MainMenuScene {
     tagline.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
     tagline.verticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
     tagline.top = '-20px';
+    tagline.isHitTestVisible = false;
     this.gui.addControl(tagline);
 
     // Menu buttons
@@ -276,7 +286,14 @@ export class MainMenuScene {
     btnData.forEach((btn, i) => {
       const button = this._createMenuButton(btn.text, btn.nepali);
       button.top = `${60 + i * 70}px`;
-      button.onPointerClickObservable.add(btn.action);
+
+      button.onPointerDownObservable.add(() => console.log(`[BTN] pointerdown: ${btn.text}`));
+      button.onPointerUpObservable.add(() => {
+        console.log(`[BTN] pointerup: ${btn.text} → firing action`);
+        btn.action();
+      });
+      button.onPointerEnterObservable.add(() => console.log(`[BTN] hover enter: ${btn.text}`));
+
       this.gui.addControl(button);
     });
 
@@ -290,6 +307,7 @@ export class MainMenuScene {
     credits.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
     credits.verticalAlignment = Control.VERTICAL_ALIGNMENT_BOTTOM;
     credits.top = '-12px';
+    credits.isHitTestVisible = false;
     this.gui.addControl(credits);
   }
 
@@ -312,6 +330,7 @@ export class MainMenuScene {
     label.letterSpacing = 3;
     label.left = '0px';
     label.top = '-4px';
+    label.isHitTestVisible = false;
     btn.addControl(label);
 
     const nepaliLabel = new TextBlock(`btn_np_${text}`);
@@ -320,6 +339,7 @@ export class MainMenuScene {
     nepaliLabel.fontSize = 10;
     nepaliLabel.fontFamily = 'Noto Sans Devanagari, sans-serif';
     nepaliLabel.top = '14px';
+    nepaliLabel.isHitTestVisible = false;
     btn.addControl(nepaliLabel);
 
     btn.isPointerBlocker = true;

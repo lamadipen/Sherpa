@@ -36,6 +36,7 @@ export class LeaderboardUI {
     title.fontFamily = 'Teko, sans-serif';
     title.letterSpacing = 6;
     title.top = '-250px';
+    title.isHitTestVisible = false;
     panel.addControl(title);
 
     const subtitle = new TextBlock('lbSub');
@@ -45,6 +46,7 @@ export class LeaderboardUI {
     subtitle.fontFamily = 'Rajdhani, sans-serif';
     subtitle.letterSpacing = 3;
     subtitle.top = '-218px';
+    subtitle.isHitTestVisible = false;
     panel.addControl(subtitle);
 
     // Headers
@@ -96,6 +98,7 @@ export class LeaderboardUI {
     yourText.fontSize = 14;
     yourText.fontFamily = 'Rajdhani, sans-serif';
     yourText.letterSpacing = 2;
+    yourText.isHitTestVisible = false;
     yourPanel.addControl(yourText);
 
     // Close button
@@ -114,6 +117,7 @@ export class LeaderboardUI {
     closeTxt.fontSize = 16;
     closeTxt.fontFamily = 'Teko, sans-serif';
     closeTxt.letterSpacing = 3;
+    closeTxt.isHitTestVisible = false;
     closeBtn.addControl(closeTxt);
     closeBtn.onPointerClickObservable.add(() => this.overlay.dispose());
     panel.addControl(closeBtn);
@@ -144,6 +148,7 @@ export class LeaderboardUI {
       t.letterSpacing = isHeader ? 2 : 1;
       t.left = `${offsets[ci]}px`;
       t.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
+      t.isHitTestVisible = false;
       row.addControl(t);
     });
   }

@@ -504,8 +504,9 @@ export class GameScene {
     contText.fontSize = 16;
     contText.fontFamily = 'Teko, sans-serif';
     contText.letterSpacing = 2;
+    contText.isHitTestVisible = false;
     continueBtn.addControl(contText);
-    continueBtn.onPointerClickObservable.add(() => {
+    continueBtn.onPointerUpObservable.add(() => {
       gui.dispose();
       onContinue();
     });
@@ -585,8 +586,9 @@ export class GameScene {
       txt.fontSize = 15;
       txt.fontFamily = 'Teko, sans-serif';
       txt.letterSpacing = 2;
+      txt.isHitTestVisible = false;
       btn.addControl(txt);
-      btn.onPointerClickObservable.add(b.action);
+      btn.onPointerUpObservable.add(b.action);
       btn.onPointerEnterObservable.add(() => { btn.color = 'rgba(255,255,255,0.6)'; });
       btn.onPointerOutObservable.add(() => { btn.color = 'rgba(255,255,255,0.3)'; });
       panel.addControl(btn);
@@ -725,8 +727,9 @@ export class GameScene {
       txt.fontSize = 16;
       txt.fontFamily = 'Teko, sans-serif';
       txt.letterSpacing = 3;
+      txt.isHitTestVisible = false;
       btn.addControl(txt);
-      btn.onPointerClickObservable.add(b.action);
+      btn.onPointerUpObservable.add(b.action);
       btn.onPointerEnterObservable.add(() => { btn.background = 'rgba(100, 140, 200, 0.3)'; });
       btn.onPointerOutObservable.add(() => { btn.background = i === 0 ? 'rgba(192, 57, 43, 0.5)' : 'rgba(30, 45, 80, 0.5)'; });
       panel.addControl(btn);

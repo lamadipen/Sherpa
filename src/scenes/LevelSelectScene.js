@@ -28,8 +28,6 @@ export class LevelSelectScene {
 
     this._buildMiniMountains();
     this._buildGUI();
-
-    this.game.engine.runRenderLoop(() => this.scene?.render());
   }
 
   _buildMiniMountains() {
@@ -59,6 +57,7 @@ export class LevelSelectScene {
     header.background = 'rgba(5, 10, 25, 0.9)';
     header.color = 'rgba(100, 140, 200, 0.3)';
     header.thickness = 0;
+    header.isHitTestVisible = false;
     this.gui.addControl(header);
 
     const headerTitle = new TextBlock('lsHeaderTitle');
@@ -70,6 +69,7 @@ export class LevelSelectScene {
     headerTitle.top = '4px';
     headerTitle.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
     headerTitle.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
+    headerTitle.isHitTestVisible = false;
     this.gui.addControl(headerTitle);
 
     const headerSub = new TextBlock('lsHeaderSub');
@@ -80,6 +80,7 @@ export class LevelSelectScene {
     headerSub.top = '50px';
     headerSub.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
     headerSub.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
+    headerSub.isHitTestVisible = false;
     this.gui.addControl(headerSub);
 
     // Cards container
@@ -136,6 +137,7 @@ export class LevelSelectScene {
     name.letterSpacing = 2;
     name.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
     name.top = '18px';
+    name.isHitTestVisible = false;
     card.addControl(name);
 
     // Nepali name
@@ -146,6 +148,7 @@ export class LevelSelectScene {
     nepaliName.fontFamily = 'Noto Sans Devanagari, sans-serif';
     nepaliName.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
     nepaliName.top = '50px';
+    nepaliName.isHitTestVisible = false;
     card.addControl(nepaliName);
 
     // Elevation
@@ -157,6 +160,7 @@ export class LevelSelectScene {
     elev.fontWeight = '600';
     elev.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
     elev.top = '80px';
+    elev.isHitTestVisible = false;
     card.addControl(elev);
 
     // Difficulty stars
@@ -166,6 +170,7 @@ export class LevelSelectScene {
     stars.fontSize = 18;
     stars.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
     stars.top = '118px';
+    stars.isHitTestVisible = false;
     card.addControl(stars);
 
     // Difficulty label
@@ -177,6 +182,7 @@ export class LevelSelectScene {
     diffLabel.letterSpacing = 2;
     diffLabel.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
     diffLabel.top = '145px';
+    diffLabel.isHitTestVisible = false;
     card.addControl(diffLabel);
 
     // Season / cultural event
@@ -188,6 +194,7 @@ export class LevelSelectScene {
     event.letterSpacing = 1;
     event.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
     event.top = '168px';
+    event.isHitTestVisible = false;
     card.addControl(event);
 
     // Summit time (if completed)
@@ -203,6 +210,7 @@ export class LevelSelectScene {
       timeText.letterSpacing = 1;
       timeText.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
       timeText.top = '195px';
+      timeText.isHitTestVisible = false;
       card.addControl(timeText);
     }
 
@@ -213,6 +221,7 @@ export class LevelSelectScene {
       lock.fontSize = 36;
       lock.verticalAlignment = Control.VERTICAL_ALIGNMENT_BOTTOM;
       lock.top = '-60px';
+      lock.isHitTestVisible = false;
       card.addControl(lock);
     }
 
@@ -235,17 +244,18 @@ export class LevelSelectScene {
       climbText.fontSize = 15;
       climbText.fontFamily = 'Teko, sans-serif';
       climbText.letterSpacing = 2;
+      climbText.isHitTestVisible = false;
       climbBtn.addControl(climbText);
 
       climbBtn.onPointerEnterObservable.add(() => { climbBtn.background = 'rgba(192, 57, 43, 1)'; });
       climbBtn.onPointerOutObservable.add(() => { climbBtn.background = 'rgba(192, 57, 43, 0.7)'; });
-      climbBtn.onPointerClickObservable.add(() => {
+      climbBtn.onPointerUpObservable.add(() => {
         this.game.transitionTo(GameState.PLAYING, { levelIndex: index });
       });
       card.addControl(climbBtn);
 
       // Info button
-      card.onPointerClickObservable.add(() => this._showDetail(cfg, index));
+      card.onPointerUpObservable.add(() => this._showDetail(cfg, index));
 
       // Hover effects
       card.onPointerEnterObservable.add(() => {
@@ -315,8 +325,9 @@ export class LevelSelectScene {
     closeText.fontSize = 14;
     closeText.fontFamily = 'Teko, sans-serif';
     closeText.letterSpacing = 2;
+    closeText.isHitTestVisible = false;
     closeBtn.addControl(closeText);
-    closeBtn.onPointerClickObservable.add(() => { panel.isVisible = false; });
+    closeBtn.onPointerUpObservable.add(() => { panel.isVisible = false; });
     panel.addControl(closeBtn);
 
     return panel;
@@ -349,9 +360,10 @@ export class LevelSelectScene {
     txt.fontSize = 14;
     txt.fontFamily = 'Teko, sans-serif';
     txt.letterSpacing = 2;
+    txt.isHitTestVisible = false;
     btn.addControl(txt);
 
-    btn.onPointerClickObservable.add(() => this.game.transitionTo(GameState.MAIN_MENU));
+    btn.onPointerUpObservable.add(() => this.game.transitionTo(GameState.MAIN_MENU));
     btn.onPointerEnterObservable.add(() => { btn.background = 'rgba(50, 60, 100, 0.8)'; });
     btn.onPointerOutObservable.add(() => { btn.background = 'rgba(30, 40, 70, 0.7)'; });
 

@@ -35,6 +35,7 @@ export class SettingsUI {
     title.fontFamily = 'Teko, sans-serif';
     title.letterSpacing = 6;
     title.top = '-160px';
+    title.isHitTestVisible = false;
     panel.addControl(title);
 
     // Language toggle
@@ -51,6 +52,7 @@ export class SettingsUI {
     musicLabel.fontFamily = 'Rajdhani, sans-serif';
     musicLabel.letterSpacing = 2;
     musicLabel.top = '-30px';
+    musicLabel.isHitTestVisible = false;
     panel.addControl(musicLabel);
 
     const sfxLabel = new TextBlock('sfxLabel');
@@ -60,6 +62,7 @@ export class SettingsUI {
     sfxLabel.fontFamily = 'Rajdhani, sans-serif';
     sfxLabel.letterSpacing = 2;
     sfxLabel.top = '30px';
+    sfxLabel.isHitTestVisible = false;
     panel.addControl(sfxLabel);
 
     const volumeNote = new TextBlock('volumeNote');
@@ -68,6 +71,7 @@ export class SettingsUI {
     volumeNote.fontSize = 10;
     volumeNote.fontFamily = 'Rajdhani, sans-serif';
     volumeNote.top = '75px';
+    volumeNote.isHitTestVisible = false;
     panel.addControl(volumeNote);
 
     // Close button
@@ -86,6 +90,7 @@ export class SettingsUI {
     closeTxt.fontSize = 16;
     closeTxt.fontFamily = 'Teko, sans-serif';
     closeTxt.letterSpacing = 3;
+    closeTxt.isHitTestVisible = false;
     closeBtn.addControl(closeTxt);
     closeBtn.onPointerClickObservable.add(() => this.overlay.dispose());
     panel.addControl(closeBtn);
@@ -99,6 +104,7 @@ export class SettingsUI {
     labelText.fontFamily = 'Rajdhani, sans-serif';
     labelText.letterSpacing = 2;
     labelText.top = `${top - 20}px`;
+    labelText.isHitTestVisible = false;
     parent.addControl(labelText);
 
     options.forEach((opt, i) => {
@@ -118,6 +124,7 @@ export class SettingsUI {
       txt.color = '#fff';
       txt.fontSize = 14;
       txt.fontFamily = 'Noto Sans Devanagari, Teko, sans-serif';
+      txt.isHitTestVisible = false;
       btn.addControl(txt);
 
       btn.onPointerClickObservable.add(() => {

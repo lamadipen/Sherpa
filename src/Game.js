@@ -70,47 +70,56 @@ export class Game {
   }
 
   async transitionTo(newState, payload = {}) {
+    // Escape the current render frame before disposing — calling scene.dispose()
+    // from inside a BabylonJS GUI observable (which fires mid-render) silently fails.
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    this.engine.stopRenderLoop();
+
     if (this.currentScene) {
-      await this.currentScene.dispose?.();
+      this.currentScene.dispose?.();
       this.currentScene = null;
     }
 
-    this.engine.stopRenderLoop();
     this.state = newState;
 
-    switch (newState) {
-      case GameState.LOADING:
-        this.currentScene = new LoadingScene(this);
-        this.currentScene.onComplete = () => this.transitionTo(GameState.MAIN_MENU);
-        await this.currentScene.create();
-        break;
+    try {
+      switch (newState) {
+        case GameState.LOADING:
+          this.currentScene = new LoadingScene(this);
+          this.currentScene.onComplete = () => this.transitionTo(GameState.MAIN_MENU);
+          await this.currentScene.create();
+          break;
 
-      case GameState.MAIN_MENU:
-        this.currentScene = new MainMenuScene(this);
-        await this.currentScene.create();
-        break;
+        case GameState.MAIN_MENU:
+          this.currentScene = new MainMenuScene(this);
+          await this.currentScene.create();
+          break;
 
-      case GameState.LEVEL_SELECT:
-        this.currentScene = new LevelSelectScene(this);
-        await this.currentScene.create();
-        break;
+        case GameState.LEVEL_SELECT:
+          this.currentScene = new LevelSelectScene(this);
+          await this.currentScene.create();
+          break;
 
-      case GameState.PLAYING:
-        this.activeLevel = payload.levelIndex ?? 0;
-        this.currentScene = new GameScene(this, this.activeLevel);
-        await this.currentScene.create();
-        break;
+        case GameState.PLAYING:
+          this.activeLevel = payload.levelIndex ?? 0;
+          this.currentScene = new GameScene(this, this.activeLevel);
+          await this.currentScene.create();
+          break;
 
-      case GameState.SUMMIT:
-        this.currentScene = new SummitScene(this, payload);
-        await this.currentScene.create();
-        break;
-    }
+        case GameState.SUMMIT:
+          this.currentScene = new SummitScene(this, payload);
+          await this.currentScene.create();
+          break;
+      }
 
-    if (this.currentScene?.scene) {
-      this.engine.runRenderLoop(() => {
-        this.currentScene?.scene?.render();
-      });
+      if (this.currentScene?.scene) {
+        this.engine.runRenderLoop(() => {
+          this.currentScene?.scene?.render();
+        });
+      }
+    } catch (err) {
+      console.error(`[Sherpa] transitionTo(${newState}) failed:`, err);
     }
   }
 }
