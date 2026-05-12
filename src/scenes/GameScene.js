@@ -263,9 +263,9 @@ export class GameScene {
   campDefinitions() {
     return [
       { id: 'base', name: 'Base Camp', progress: 0, used: true },
-      { id: 'camp1', name: 'Camp I', progress: 0.28, oxygen: 20, stamina: 34, morale: 10, used: false },
-      { id: 'camp2', name: 'Camp II', progress: 0.56, oxygen: 28, stamina: 38, morale: 14, used: false },
-      { id: 'summit-push', name: 'Summit Push', progress: 0.78, oxygen: 20, stamina: 30, morale: 18, used: false }
+      { id: 'camp1', name: 'Camp I', progress: 0.24, oxygen: 22, stamina: 34, morale: 10, used: false },
+      { id: 'camp2', name: 'Camp II', progress: 0.52, oxygen: 30, stamina: 40, morale: 14, used: false },
+      { id: 'summit-push', name: 'Summit Push', progress: 0.76, oxygen: 24, stamina: 34, morale: 18, used: false }
     ];
   }
 
@@ -311,8 +311,8 @@ export class GameScene {
     this.createClimbingRoute();
     this.createRouteMarkers();
 
-    for (let i = 0; i < 30; i += 1) {
-      const z = -82 + i * 9.2;
+    for (let i = 0; i < 42; i += 1) {
+      const z = -82 + i * (level.routeLength / 42);
       const center = this.routeCenterAt(z);
       const width = 17 + Math.sin(i * 0.77) * 3;
       const ridgeL = MeshBuilder.CreateBox(`route-ridge-l-${i}`, { width: 7, height: 2.8 + i * 0.02, depth: 9 }, this.scene);
@@ -341,9 +341,9 @@ export class GameScene {
     this.createExpeditionCamps();
     this.createEnvironmentIdentity();
     this.props.push(this.himalayanProps.createPrayerFlags('route-prayer-flags', this.routePosition(this.routeCenterAt(-65) - 11, -65, 2.4), this.routePosition(this.routeCenterAt(-58) + 10, -58, 2.9)));
-    for (let i = 0; i < 18; i += 1) {
+    for (let i = 0; i < 24; i += 1) {
       const side = i % 2 === 0 ? -1 : 1;
-      const z = -70 + i * 12;
+      const z = -70 + i * (level.routeLength / 24);
       const x = this.routeCenterAt(z) + side * (18 + Math.random() * 10);
       this.cloneAssetOnRoute(i % 3 === 0 ? 'tree_pineRoundC.glb' : 'rock_tallH.glb', `route-prop-${i}`, x, z, 0.9 + Math.random() * 0.9, Math.random() * Math.PI, 0.15);
     }
@@ -659,8 +659,10 @@ export class GameScene {
   spawnHazards() {
     const level = this.level;
     level.hazards.forEach((type, index) => {
-      for (let i = 0; i < 3; i += 1) {
-        const z = -48 + index * 34 + i * 26;
+      const count = type === 'avalanche' ? 4 : 3;
+      for (let i = 0; i < count; i += 1) {
+        const lane = (i + 0.65 + index * 0.32) / (count + 0.8);
+        const z = -70 + level.routeLength * lane;
         const x = ((i + index) % 2 === 0 ? -1 : 1) * (3 + Math.random() * 6);
         const hazard = this.createHazard(type, x, z);
         this.hazards.push(hazard);
