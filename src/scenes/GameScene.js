@@ -144,7 +144,16 @@ export class GameScene {
   }
 
   async preloadAssets() {
-    const files = ['tent_detailedOpen.glb', 'campfire_stones.glb', 'tree_pineRoundC.glb', 'stone_tallB.glb', 'rock_tallH.glb', 'bridge_wood.glb'];
+    const environmentFiles = this.levels.flatMap((level) => level.environment?.propSet || []);
+    const files = [
+      'tent_detailedOpen.glb',
+      'campfire_stones.glb',
+      'tree_pineRoundC.glb',
+      'stone_tallB.glb',
+      'rock_tallH.glb',
+      'bridge_wood.glb',
+      ...environmentFiles
+    ];
     await Promise.all(files.map((file) => this.loadAsset(file).catch(() => null)));
   }
 
@@ -265,6 +274,7 @@ export class GameScene {
     this.levelIndex = index;
     this.level = this.levels[index];
     this.camps = this.campDefinitions();
+    this.applyLevelEnvironment();
     this.state = 'playing';
     this.metrics = this.defaultMetrics();
     this.player.reset();
@@ -278,6 +288,14 @@ export class GameScene {
     this.player.root.position.y = this.terrainHeightAt(this.player.root.position.x, this.player.root.position.z) + 0.7;
     this.spawnHazards();
     this.renderHud();
+  }
+
+  applyLevelEnvironment() {
+    const env = this.level.environment || {};
+    const accent = env.accent || this.level.color || '#ffcf5a';
+    if (this.materials?.routeFlag) this.materials.routeFlag.diffuseColor = Color3.FromHexString(accent);
+    if (this.materials?.checkpoint) this.materials.checkpoint.diffuseColor = Color3.FromHexString(accent);
+    if (this.materials?.ice) this.materials.ice.diffuseColor = Color3.FromHexString(this.level.id === 'annapurna' ? '#90d8ef' : '#73c7df');
   }
 
   clearLevel() {
@@ -321,12 +339,95 @@ export class GameScene {
     this.cloneAssetOnRoute('campfire_stones.glb', 'basecamp-fire', this.routeCenterAt(-83) + 5, -83, 1.2, 0, 0.08);
     this.props.push(this.himalayanProps.createLodge('basecamp-lodge', this.routePosition(this.routeCenterAt(-88) - 14, -88, 0.2), { rotationY: -0.36 }));
     this.createExpeditionCamps();
+    this.createEnvironmentIdentity();
     this.props.push(this.himalayanProps.createPrayerFlags('route-prayer-flags', this.routePosition(this.routeCenterAt(-65) - 11, -65, 2.4), this.routePosition(this.routeCenterAt(-58) + 10, -58, 2.9)));
     for (let i = 0; i < 18; i += 1) {
       const side = i % 2 === 0 ? -1 : 1;
       const z = -70 + i * 12;
       const x = this.routeCenterAt(z) + side * (18 + Math.random() * 10);
       this.cloneAssetOnRoute(i % 3 === 0 ? 'tree_pineRoundC.glb' : 'rock_tallH.glb', `route-prop-${i}`, x, z, 0.9 + Math.random() * 0.9, Math.random() * Math.PI, 0.15);
+    }
+  }
+
+  createEnvironmentIdentity() {
+    const env = this.level.environment || {};
+    const props = env.propSet || [];
+    if (!props.length) return;
+
+    for (let i = 0; i < 16; i += 1) {
+      const z = -78 + i * (this.level.routeLength / 15);
+      const side = i % 2 === 0 ? -1 : 1;
+      const x = this.routeCenterAt(z) + side * (10 + (i % 4) * 3);
+      const file = props[i % props.length];
+      const scale = env.theme === 'annapurna' || env.theme === 'langtang' ? 0.75 + (i % 3) * 0.18 : 0.9 + (i % 4) * 0.16;
+      this.cloneAssetOnRoute(file, `route-${env.theme}-identity-${i}`, x, z, scale, Math.random() * Math.PI, 0.1);
+    }
+
+    if (env.motif === 'mani-stones') this.createManiStoneLine();
+    if (env.motif === 'harvest-offerings') this.createOfferingBaskets();
+    if (env.motif === 'sacred-valley') this.createValleyLanterns();
+    if (env.motif === 'whiteout-ridge') this.createWindPoles();
+    if (env.motif === 'eastern-shrine') this.createShrineMarkers();
+  }
+
+  createAccentBox(name, x, z, width, height, depth, material, lift = 0) {
+    const box = MeshBuilder.CreateBox(name, { width, height, depth }, this.scene);
+    box.position.set(x, this.terrainHeightAt(x, z) + height / 2 + lift, z);
+    box.material = material;
+    return box;
+  }
+
+  createManiStoneLine() {
+    for (let i = 0; i < 10; i += 1) {
+      const z = -72 + i * 17;
+      const x = this.routeCenterAt(z) - 7;
+      const stone = this.createAccentBox(`route-mani-stone-${i}`, x, z, 1.2, 0.42, 0.62, this.materials.rock, 0.02);
+      stone.rotation.y = 0.4 + i * 0.13;
+    }
+  }
+
+  createOfferingBaskets() {
+    for (let i = 0; i < 8; i += 1) {
+      const z = -76 + i * 20;
+      const x = this.routeCenterAt(z) + (i % 2 === 0 ? 7 : -7);
+      const basket = MeshBuilder.CreateCylinder(`route-offering-basket-${i}`, { height: 0.42, diameterTop: 0.9, diameterBottom: 0.62, tessellation: 8 }, this.scene);
+      basket.position.set(x, this.terrainHeightAt(x, z) + 0.22, z);
+      basket.material = this.materials.checkpoint;
+    }
+  }
+
+  createValleyLanterns() {
+    for (let i = 0; i < 10; i += 1) {
+      const z = -74 + i * 16;
+      const x = this.routeCenterAt(z) + (i % 2 === 0 ? 8 : -8);
+      const pole = this.createAccentBox(`route-lantern-pole-${i}`, x, z, 0.08, 1.7, 0.08, this.materials.anchor);
+      const lantern = MeshBuilder.CreateBox(`route-lantern-${i}`, { width: 0.42, height: 0.38, depth: 0.42 }, this.scene);
+      lantern.position.set(pole.position.x, pole.position.y + 1.02, z);
+      lantern.material = this.materials.routeFlag;
+    }
+  }
+
+  createWindPoles() {
+    for (let i = 0; i < 12; i += 1) {
+      const z = -78 + i * 17;
+      const x = this.routeCenterAt(z) + (i % 2 === 0 ? 9 : -9);
+      const pole = this.createAccentBox(`route-wind-pole-${i}`, x, z, 0.1, 2.2, 0.1, this.materials.anchor);
+      pole.rotation.z = (i % 2 === 0 ? -1 : 1) * 0.22;
+      const ribbon = MeshBuilder.CreateBox(`route-wind-ribbon-${i}`, { width: 1.2, height: 0.16, depth: 0.04 }, this.scene);
+      ribbon.position.set(x + (i % 2 === 0 ? 0.62 : -0.62), pole.position.y + 1.05, z);
+      ribbon.material = this.materials.routeFlag;
+    }
+  }
+
+  createShrineMarkers() {
+    for (let i = 0; i < 7; i += 1) {
+      const z = -68 + i * 25;
+      const x = this.routeCenterAt(z) + (i % 2 === 0 ? -8 : 8);
+      const base = this.createAccentBox(`route-shrine-base-${i}`, x, z, 1.2, 0.45, 1.2, this.materials.rock);
+      const top = MeshBuilder.CreateCylinder(`route-shrine-top-${i}`, { height: 0.9, diameterTop: 0, diameterBottom: 1.1, tessellation: 4 }, this.scene);
+      top.position.set(x, base.position.y + 0.72, z);
+      top.rotation.y = Math.PI / 4;
+      top.material = this.materials.checkpoint;
     }
   }
 

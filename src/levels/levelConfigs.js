@@ -14,6 +14,12 @@ export const levels = [
     staminaDrain: 0.48,
     wind: 0.45,
     hazards: ['crevasse', 'blizzard'],
+    environment: {
+      theme: 'khumbu',
+      accent: '#1f5fbf',
+      propSet: ['stone_largeA.glb', 'rock_tallH.glb', 'tree_pineRoundC.glb'],
+      motif: 'mani-stones'
+    },
     dialogue: [
       { speaker: 'Karma', en: 'Stay on my rope. The summit waits for patient feet.', ne: 'डोरीमा बस। शिखर धैर्य गर्नेका लागि हो।' },
       { speaker: 'Pemba', en: 'The flags are restless today.', ne: 'आज ध्वजाहरू धेरै चञ्चल छन्।' }
@@ -34,6 +40,12 @@ export const levels = [
     staminaDrain: 0.58,
     wind: 0.62,
     hazards: ['avalanche', 'crevasse'],
+    environment: {
+      theme: 'annapurna',
+      accent: '#d96d2c',
+      propSet: ['crop_pumpkin.glb', 'crops_wheatStageB.glb', 'plant_bushLarge.glb'],
+      motif: 'harvest-offerings'
+    },
     dialogue: [
       { speaker: 'Karma', en: 'Annapurna gives no warning twice.', ne: 'अन्नपूर्णाले एउटै चेतावनी दुई पटक दिँदैन।' },
       { speaker: 'Maya', en: 'The snow sounds hollow under us.', ne: 'हाम्रो मुनिको हिउँ खोक्रो सुनिन्छ।' }
@@ -54,6 +66,12 @@ export const levels = [
     staminaDrain: 0.54,
     wind: 0.55,
     hazards: ['spirit', 'blizzard'],
+    environment: {
+      theme: 'langtang',
+      accent: '#2bbf8a',
+      propSet: ['flower_purpleA.glb', 'flower_yellowB.glb', 'mushroom_redGroup.glb'],
+      motif: 'sacred-valley'
+    },
     dialogue: [
       { speaker: 'Karma', en: 'Walk softly. The valley remembers every footstep.', ne: 'बिस्तारै हिँड। उपत्यकाले हरेक पाइला सम्झन्छ।' },
       { speaker: 'Old Lama', en: 'Offer silence before you ask passage.', ne: 'बाटो माग्नुअघि मौन अर्पण गर।' }
@@ -74,6 +92,12 @@ export const levels = [
     staminaDrain: 0.66,
     wind: 0.72,
     hazards: ['avalanche', 'blizzard', 'crevasse'],
+    environment: {
+      theme: 'manaslu',
+      accent: '#8b5cf6',
+      propSet: ['cliff_block_rock.glb', 'stone_largeF.glb', 'rock_largeB.glb'],
+      motif: 'whiteout-ridge'
+    },
     dialogue: [
       { speaker: 'Karma', en: 'Manaslu tests the team, not the ego.', ne: 'मनास्लुले घमण्ड होइन, टोली जाँच्छ।' },
       { speaker: 'Tashi', en: 'If one slows, all slow.', ne: 'एक जना ढिलो भए, सबै ढिलो हुन्छन्।' }
@@ -94,6 +118,12 @@ export const levels = [
     staminaDrain: 0.62,
     wind: 0.5,
     hazards: ['spirit', 'crevasse', 'avalanche'],
+    environment: {
+      theme: 'kanchenjunga',
+      accent: '#d6b93f',
+      propSet: ['statue_ring.glb', 'statue_block.glb', 'stone_largeC.glb'],
+      motif: 'eastern-shrine'
+    },
     dialogue: [
       { speaker: 'Karma', en: 'We do not conquer this mountain. We are allowed to return.', ne: 'हामी यो हिमाल जित्दैनौं। हामीलाई फर्किन अनुमति मिल्छ।' },
       { speaker: 'Mountain Spirit', en: 'Leave no hurry here.', ne: 'यहाँ हतार नछोड।' }
