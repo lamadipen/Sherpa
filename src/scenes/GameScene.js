@@ -55,9 +55,13 @@ export class GameScene {
     this.scene.clearColor = Color4.FromHexString('#dff2ffcc');
     this.camera = new ArcRotateCamera('camera', Math.PI / 2, 1.1, 30, new Vector3(0, 3, -70), this.scene);
     this.camera.attachControl(this.canvas, true);
-    this.camera.lowerRadiusLimit = 18;
-    this.camera.upperRadiusLimit = 52;
+    this.camera.lowerRadiusLimit = 16;
+    this.camera.upperRadiusLimit = 58;
     this.camera.wheelDeltaPercentage = 0.02;
+    this.camera.maxZ = 1200;
+    this.scene.fogMode = Scene.FOGMODE_EXP2;
+    this.scene.fogDensity = 0.0018;
+    this.scene.fogColor = Color3.FromHexString('#dcecf7');
 
     const hemi = new HemisphericLight('hemi', new Vector3(0, 1, 0), this.scene);
     hemi.intensity = 0.92;
@@ -77,6 +81,8 @@ export class GameScene {
     this.materials = {
       snow: this.mat('snow', '#f6fbff'),
       ridge: this.mat('ridge', '#bed0de'),
+      farRidge: this.mat('farRidge', '#9cafbc'),
+      farSnow: this.mat('farSnow', '#edf6fb'),
       ice: this.mat('ice', '#73c7df', 0.58),
       hazard: this.mat('hazard', '#101927'),
       avalanche: this.mat('avalanche', '#ffffff'),
@@ -97,8 +103,8 @@ export class GameScene {
     const system = new ParticleSystem('snow', 1600, this.scene);
     system.particleTexture = new Texture(SNOW_PARTICLE, this.scene);
     system.emitter = new Vector3(0, 28, 0);
-    system.minEmitBox = new Vector3(-42, 0, -120);
-    system.maxEmitBox = new Vector3(42, 0, 160);
+    system.minEmitBox = new Vector3(-80, 0, -120);
+    system.maxEmitBox = new Vector3(80, 0, 280);
     system.color1 = new Color4(1, 1, 1, 0.9);
     system.color2 = new Color4(0.82, 0.93, 1, 0.65);
     system.minSize = 0.05;
@@ -227,6 +233,7 @@ export class GameScene {
     summit.position.set(0, this.routeHeightAt(level.routeLength - 82) + 3.4, level.routeLength - 82);
     summit.rotation.y = Math.PI / 4;
     summit.material = this.materials.ridge;
+    this.buildHorizonPeaks();
 
     const checkpointZ = -82 + level.routeLength * 0.48;
     this.cloneAssetOnRoute('tent_detailedOpen.glb', 'basecamp-tent', -8, -84, 1.5, 0.5, 0.4);
@@ -241,6 +248,44 @@ export class GameScene {
       const z = -70 + i * 12;
       this.cloneAssetOnRoute(i % 3 === 0 ? 'tree_pineRoundC.glb' : 'rock_tallH.glb', `route-prop-${i}`, x, z, 0.9 + Math.random() * 0.9, Math.random() * Math.PI, 0.15);
     }
+  }
+
+  buildHorizonPeaks() {
+    const level = this.level;
+    const summitZ = level.routeLength - 82;
+    const farZ = summitZ + 68;
+    const peakSpecs = [
+      { x: 0, z: farZ, height: 76, width: 54, rotation: 0.18, main: true },
+      { x: -42, z: farZ - 18, height: 48, width: 40, rotation: -0.28 },
+      { x: 45, z: farZ - 10, height: 54, width: 42, rotation: 0.34 },
+      { x: -86, z: farZ - 38, height: 38, width: 46, rotation: 0.08 },
+      { x: 86, z: farZ - 32, height: 40, width: 48, rotation: -0.14 },
+      { x: -58, z: 20, height: 28, width: 36, rotation: 0.36 },
+      { x: 62, z: 54, height: 31, width: 38, rotation: -0.3 }
+    ];
+
+    peakSpecs.forEach((spec, index) => {
+      const baseY = this.routeHeightAt(Math.min(spec.z, summitZ), spec.x) - 2;
+      const peak = MeshBuilder.CreateCylinder(`route-horizon-peak-${index}`, {
+        height: spec.height,
+        diameterTop: 0,
+        diameterBottom: spec.width,
+        tessellation: 4
+      }, this.scene);
+      peak.position.set(spec.x, baseY + spec.height / 2, spec.z);
+      peak.rotation.y = Math.PI / 4 + spec.rotation;
+      peak.material = spec.main ? this.materials.ridge : this.materials.farRidge;
+
+      const cap = MeshBuilder.CreateCylinder(`route-horizon-snowcap-${index}`, {
+        height: spec.height * 0.36,
+        diameterTop: 0,
+        diameterBottom: spec.width * 0.42,
+        tessellation: 4
+      }, this.scene);
+      cap.position.set(spec.x, baseY + spec.height * 0.82, spec.z);
+      cap.rotation.y = peak.rotation.y;
+      cap.material = this.materials.farSnow;
+    });
   }
 
   spawnHazards() {
@@ -317,11 +362,13 @@ export class GameScene {
   }
 
   updateCamera(delta) {
-    const target = this.player.root.position.add(new Vector3(0, 5.5, 10));
+    const progress = Math.max(0, Math.min(1, (this.player.root.position.z + 88) / this.level.routeLength));
+    const lookAhead = 7 + progress * 7;
+    const target = this.player.root.position.add(new Vector3(0, 3.2 + progress * 2.2, lookAhead));
     this.camera.target = Vector3.Lerp(this.camera.target, target, Math.min(1, delta * 3.5));
-    this.camera.radius = 28;
+    this.camera.radius = 24 + progress * 8;
     this.camera.alpha = -Math.PI / 2;
-    this.camera.beta = 1.08;
+    this.camera.beta = 1.16;
   }
 
   checkProgress() {
