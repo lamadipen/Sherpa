@@ -89,6 +89,9 @@ export class GameScene {
       rock: this.mat('rock', '#4c5a61'),
       shadowRock: this.mat('shadowRock', '#334149'),
       horizonRock: this.mat('horizonRock', '#2f4654'),
+      rope: this.mat('routeRope', '#d8b15f'),
+      anchor: this.mat('routeAnchor', '#29343c'),
+      routeFlag: this.mat('routeFlag', '#d62839'),
       ice: this.mat('ice', '#73c7df', 0.58),
       hazard: this.mat('hazard', '#101927'),
       avalanche: this.mat('avalanche', '#ffffff'),
@@ -235,6 +238,7 @@ export class GameScene {
   buildMountain() {
     const level = this.level;
     this.createMountainTerrain();
+    this.createClimbingRoute();
     this.createRouteMarkers();
 
     for (let i = 0; i < 30; i += 1) {
@@ -301,6 +305,38 @@ export class GameScene {
     terrain.setVerticesData(VertexBuffer.NormalKind, normals);
     terrain.refreshBoundingInfo();
     terrain.material = this.materials.snow;
+  }
+
+  createClimbingRoute() {
+    const level = this.level;
+    const samples = 56;
+    const path = [];
+    for (let i = 0; i <= samples; i += 1) {
+      const z = -86 + (level.routeLength / samples) * i;
+      const x = this.routeCenterAt(z);
+      path.push(new Vector3(x, this.terrainHeightAt(x, z) + 0.28, z));
+    }
+
+    const rope = MeshBuilder.CreateTube('route-fixed-rope', {
+      path,
+      radius: 0.08,
+      tessellation: 8,
+      cap: MeshBuilder.CAP_ALL
+    }, this.scene);
+    rope.material = this.materials.rope;
+
+    for (let i = 0; i <= samples; i += 4) {
+      const point = path[i];
+      const anchor = MeshBuilder.CreateCylinder(`route-anchor-${i}`, { height: 1.15, diameter: 0.12, tessellation: 8 }, this.scene);
+      anchor.position.set(point.x, point.y + 0.45, point.z);
+      anchor.rotation.x = 0.28;
+      anchor.material = this.materials.anchor;
+
+      const flag = MeshBuilder.CreateBox(`route-red-flag-${i}`, { width: 0.5, height: 0.28, depth: 0.04 }, this.scene);
+      flag.position.set(point.x + 0.33, point.y + 0.9, point.z);
+      flag.rotation.y = 0.25;
+      flag.material = this.materials.routeFlag;
+    }
   }
 
   createRouteMarkers() {
