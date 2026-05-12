@@ -12,6 +12,8 @@ import {
   SceneLoader,
   StandardMaterial,
   Texture,
+  VertexBuffer,
+  VertexData,
   Vector3
 } from '@babylonjs/core';
 import { HimalayanProps } from '../entities/HimalayanProps.js';
@@ -146,12 +148,7 @@ export class GameScene {
   }
 
   routeHeightAt(z, x = 0) {
-    const level = this.level || { routeLength: 180, difficulty: 1 };
-    const progress = Math.max(0, Math.min(1, (z + 88) / level.routeLength));
-    const climb = 24 + level.difficulty * 8;
-    const roll = Math.sin(progress * Math.PI * 2.6) * 0.9;
-    const shoulder = Math.max(0, Math.abs(x) - 8) * 0.06;
-    return progress ** 1.18 * climb + roll + shoulder;
+    return this.terrainHeightAt(x, z);
   }
 
   routePosition(x, z, lift = 0) {
@@ -160,6 +157,33 @@ export class GameScene {
 
   cloneAssetOnRoute(file, name, x, z, scale = 1, rotationY = 0, lift = 0) {
     return this.cloneAsset(file, name, this.routePosition(x, z, lift), scale, rotationY);
+  }
+
+  routeProgressAt(z) {
+    const level = this.level || { routeLength: 180 };
+    return Math.max(0, Math.min(1, (z + 88) / level.routeLength));
+  }
+
+  routeCenterAt(z) {
+    const progress = this.routeProgressAt(z);
+    return Math.sin(progress * Math.PI * 2.15) * 7 + Math.sin(progress * Math.PI * 5.4) * 2.4;
+  }
+
+  terrainHeightAt(x, z) {
+    const level = this.level || { routeLength: 180, difficulty: 1 };
+    const progress = this.routeProgressAt(z);
+    const center = this.routeCenterAt(z);
+    const cross = x - center;
+    const shoulder = Math.max(0, Math.abs(cross) - 7);
+    const climb = progress ** 1.16 * (30 + level.difficulty * 10);
+    const ridgeRise = shoulder * 0.58 + shoulder ** 1.22 * 0.13;
+    const routeRoll = Math.sin(progress * Math.PI * 3.1) * 0.85;
+    const roughness = Math.min(1, Math.abs(cross) / 26);
+    const rockNoise =
+      Math.sin(x * 0.17 + z * 0.083) * 0.9 +
+      Math.sin(x * 0.41 - z * 0.047) * 0.55 +
+      Math.sin(z * 0.19) * 0.35;
+    return climb + ridgeRise + routeRoll + rockNoise * (0.18 + roughness * 1.05);
   }
 
   bindInput() {
@@ -186,10 +210,11 @@ export class GameScene {
     this.state = 'playing';
     this.metrics = this.defaultMetrics();
     this.player.reset();
+    this.player.root.position.x = this.routeCenterAt(this.player.root.position.z);
     this.scene.clearColor = Color4.FromHexString(`${this.level.sky}dd`);
     this.clearLevel();
     this.buildMountain();
-    this.player.root.position.y = this.routeHeightAt(this.player.root.position.z, this.player.root.position.x) + 0.7;
+    this.player.root.position.y = this.terrainHeightAt(this.player.root.position.x, this.player.root.position.z) + 0.7;
     this.spawnHazards();
     this.renderHud();
   }
@@ -203,50 +228,84 @@ export class GameScene {
 
   buildMountain() {
     const level = this.level;
-    const routeSegments = 22;
-    const routeDepth = (level.routeLength + 28) / routeSegments;
-    const routeGrade = Math.atan((24 + level.difficulty * 8) / level.routeLength);
-    for (let i = 0; i < routeSegments; i += 1) {
-      const z = -92 + routeDepth * (i + 0.5);
-      const progress = i / Math.max(1, routeSegments - 1);
-      const width = 38 - progress * 13;
-      const slab = MeshBuilder.CreateBox(`route-snowfield-${i}`, { width, height: 0.36, depth: routeDepth + 1.4 }, this.scene);
-      slab.position.set(0, this.routeHeightAt(z) - 0.18, z);
-      slab.rotation.x = -routeGrade * 0.42;
-      slab.material = this.materials.snow;
-    }
+    this.createMountainTerrain();
+    this.createRouteMarkers();
 
     for (let i = 0; i < 30; i += 1) {
       const z = -82 + i * 9.2;
-      const width = 14 + Math.sin(i * 0.77) * 3;
+      const center = this.routeCenterAt(z);
+      const width = 17 + Math.sin(i * 0.77) * 3;
       const ridgeL = MeshBuilder.CreateBox(`route-ridge-l-${i}`, { width: 7, height: 2.8 + i * 0.02, depth: 9 }, this.scene);
-      ridgeL.position.set(-width - 7, this.routeHeightAt(z, -width - 7) + 0.6, z);
+      ridgeL.position.set(center - width - 7, this.terrainHeightAt(center - width - 7, z) + 0.6, z);
       ridgeL.rotation.z = 0.22;
       ridgeL.material = this.materials.ridge;
       const ridgeR = ridgeL.clone(`route-ridge-r-${i}`);
-      ridgeR.position.x = width + 7;
-      ridgeR.position.y = this.routeHeightAt(z, width + 7) + 0.6;
+      ridgeR.position.x = center + width + 7;
+      ridgeR.position.y = this.terrainHeightAt(center + width + 7, z) + 0.6;
       ridgeR.rotation.z = -0.22;
     }
 
     const summit = MeshBuilder.CreateCylinder('summit-marker', { height: 8, diameterTop: 0, diameterBottom: 18, tessellation: 4 }, this.scene);
-    summit.position.set(0, this.routeHeightAt(level.routeLength - 82) + 3.4, level.routeLength - 82);
+    const summitZ = level.routeLength - 82;
+    const summitX = this.routeCenterAt(summitZ);
+    summit.position.set(summitX, this.terrainHeightAt(summitX, summitZ) + 3.4, summitZ);
     summit.rotation.y = Math.PI / 4;
     summit.material = this.materials.ridge;
     this.buildHorizonPeaks();
 
     const checkpointZ = -82 + level.routeLength * 0.48;
-    this.cloneAssetOnRoute('tent_detailedOpen.glb', 'basecamp-tent', -8, -84, 1.5, 0.5, 0.4);
-    this.cloneAssetOnRoute('campfire_stones.glb', 'basecamp-fire', 5, -83, 1.2, 0, 0.08);
-    this.cloneAssetOnRoute('bridge_wood.glb', 'checkpoint-bridge', 0, checkpointZ, 1.2, Math.PI / 2, 0.2);
-    this.props.push(this.himalayanProps.createLodge('basecamp-lodge', this.routePosition(-14, -88, 0.2), { rotationY: -0.36 }));
-    this.props.push(this.himalayanProps.createLodge('checkpoint-teahouse', this.routePosition(13, checkpointZ - 4, 0.2), { rotationY: 0.52, roofColor: '#7f2c25' }));
-    this.props.push(this.himalayanProps.createPrayerFlags('route-prayer-flags', this.routePosition(-11, -65, 2.4), this.routePosition(10, -58, 2.9)));
+    this.cloneAssetOnRoute('tent_detailedOpen.glb', 'basecamp-tent', this.routeCenterAt(-84) - 8, -84, 1.5, 0.5, 0.4);
+    this.cloneAssetOnRoute('campfire_stones.glb', 'basecamp-fire', this.routeCenterAt(-83) + 5, -83, 1.2, 0, 0.08);
+    this.cloneAssetOnRoute('bridge_wood.glb', 'checkpoint-bridge', this.routeCenterAt(checkpointZ), checkpointZ, 1.2, Math.PI / 2, 0.2);
+    this.props.push(this.himalayanProps.createLodge('basecamp-lodge', this.routePosition(this.routeCenterAt(-88) - 14, -88, 0.2), { rotationY: -0.36 }));
+    this.props.push(this.himalayanProps.createLodge('checkpoint-teahouse', this.routePosition(this.routeCenterAt(checkpointZ - 4) + 13, checkpointZ - 4, 0.2), { rotationY: 0.52, roofColor: '#7f2c25' }));
+    this.props.push(this.himalayanProps.createPrayerFlags('route-prayer-flags', this.routePosition(this.routeCenterAt(-65) - 11, -65, 2.4), this.routePosition(this.routeCenterAt(-58) + 10, -58, 2.9)));
     for (let i = 0; i < 18; i += 1) {
       const side = i % 2 === 0 ? -1 : 1;
-      const x = side * (15 + Math.random() * 8);
       const z = -70 + i * 12;
+      const x = this.routeCenterAt(z) + side * (18 + Math.random() * 10);
       this.cloneAssetOnRoute(i % 3 === 0 ? 'tree_pineRoundC.glb' : 'rock_tallH.glb', `route-prop-${i}`, x, z, 0.9 + Math.random() * 0.9, Math.random() * Math.PI, 0.15);
+    }
+  }
+
+  createMountainTerrain() {
+    const level = this.level;
+    const width = 150;
+    const depth = level.routeLength + 150;
+    const centerZ = level.routeLength / 2 - 50;
+    const terrain = MeshBuilder.CreateGround('route-mountain-terrain', {
+      width,
+      height: depth,
+      subdivisions: 120,
+      updatable: true
+    }, this.scene);
+    terrain.position.z = centerZ;
+
+    const positions = terrain.getVerticesData(VertexBuffer.PositionKind);
+    const indices = terrain.getIndices();
+    for (let i = 0; i < positions.length; i += 3) {
+      const x = positions[i];
+      const z = positions[i + 2] + centerZ;
+      positions[i + 1] = this.terrainHeightAt(x, z);
+    }
+    const normals = [];
+    VertexData.ComputeNormals(positions, indices, normals);
+    terrain.setVerticesData(VertexBuffer.PositionKind, positions);
+    terrain.setVerticesData(VertexBuffer.NormalKind, normals);
+    terrain.refreshBoundingInfo();
+    terrain.material = this.materials.snow;
+  }
+
+  createRouteMarkers() {
+    const level = this.level;
+    for (let i = 0; i <= 26; i += 1) {
+      const z = -84 + (level.routeLength / 26) * i;
+      const center = this.routeCenterAt(z);
+      const marker = MeshBuilder.CreateCylinder(`route-track-marker-${i}`, { height: 0.08, diameter: 1.3, tessellation: 8 }, this.scene);
+      marker.position.set(center, this.terrainHeightAt(center, z) + 0.05, z);
+      marker.scaling.x = 1.7;
+      marker.rotation.y = Math.sin(this.routeProgressAt(z) * Math.PI * 5.4) * 0.7;
+      marker.material = i % 3 === 0 ? this.materials.ice : this.materials.snow;
     }
   }
 
@@ -313,8 +372,9 @@ export class GameScene {
       mesh.material = this.materials.spirit;
     }
     const lift = type === 'crevasse' ? 0.08 : 1.3;
-    mesh.position.set(x, this.routeHeightAt(z, x) + lift, z);
-    mesh.metadata = { type, baseX: x, speed: 0.7 + Math.random() * 0.8, phase: Math.random() * 6 };
+    const routeX = this.routeCenterAt(z) + x;
+    mesh.position.set(routeX, this.terrainHeightAt(routeX, z) + lift, z);
+    mesh.metadata = { type, routeOffset: x, speed: 0.7 + Math.random() * 0.8, phase: Math.random() * 6 };
     return mesh;
   }
 
@@ -323,6 +383,8 @@ export class GameScene {
     if (this.state !== 'playing') return;
     const level = this.level;
     this.player.update(this.input, delta, level);
+    const routeCenter = this.routeCenterAt(this.player.root.position.z);
+    this.player.root.position.x = Math.max(routeCenter - 12, Math.min(routeCenter + 12, this.player.root.position.x));
     this.player.root.position.y = this.routeHeightAt(this.player.root.position.z, this.player.root.position.x) + 0.7;
     this.metrics.time += delta;
     const isMoving = this.input.forward || this.input.left || this.input.right || this.input.back;
@@ -342,12 +404,13 @@ export class GameScene {
     this.hazards.forEach((hazard) => {
       const data = hazard.metadata;
       if (data.type === 'avalanche') {
-        hazard.position.x = data.baseX + Math.sin(this.metrics.time * data.speed + data.phase) * 6;
         hazard.position.z -= delta * (1.2 + this.level.difficulty);
         if (hazard.position.z < this.player.root.position.z - 28) hazard.position.z += 92;
+        hazard.position.x = this.routeCenterAt(hazard.position.z) + data.routeOffset + Math.sin(this.metrics.time * data.speed + data.phase) * 6;
         hazard.position.y = this.routeHeightAt(hazard.position.z, hazard.position.x) + 1.3;
       } else if (data.type === 'spirit') {
         hazard.rotation.y += delta * 1.8;
+        hazard.position.x = this.routeCenterAt(hazard.position.z) + data.routeOffset;
         hazard.position.y = this.routeHeightAt(hazard.position.z, hazard.position.x) + 1.3 + Math.sin(this.metrics.time * 2 + data.phase) * 0.3;
       }
 
