@@ -732,9 +732,16 @@ export class GameScene {
     }
   }
 
+  nearestHazardInfo() {
+    if (!this.hazards.length) return { distance: Infinity, type: '' };
+    return this.hazards.reduce((closest, hazard) => {
+      const distance = Vector3.Distance(hazard.position, this.player.root.position);
+      return distance < closest.distance ? { distance, type: hazard.metadata?.type || '' } : closest;
+    }, { distance: Infinity, type: '' });
+  }
+
   nearestHazardDistance() {
-    if (!this.hazards.length) return Infinity;
-    return this.hazards.reduce((closest, hazard) => Math.min(closest, Vector3.Distance(hazard.position, this.player.root.position)), Infinity);
+    return this.nearestHazardInfo().distance;
   }
 
   campCameraBoost(progress) {
@@ -847,6 +854,33 @@ export class GameScene {
     return `${min}:${sec}`;
   }
 
+  hudPrompt() {
+    if (this.state === 'summit') {
+      return { kind: 'camp', title: 'Summit Reached', body: 'Breathe, look, remember.' };
+    }
+    if (this.metrics.campReady) {
+      const camp = this.camps[this.metrics.campIndex];
+      return { kind: 'camp', title: camp?.name || 'Camp Reached', body: 'Press E to resupply oxygen, stamina, and morale.' };
+    }
+    if (this.metrics.oxygen < 24) return { kind: 'danger', title: 'Low Oxygen', body: 'Slow down and look for the next camp.' };
+    if (this.metrics.stamina < 20) return { kind: 'warning', title: 'Low Stamina', body: 'Hold Space to rest before pushing higher.' };
+    if (this.metrics.morale < 26) return { kind: 'warning', title: 'Morale Falling', body: 'Avoid hazards and conserve the team.' };
+
+    const hazard = this.nearestHazardInfo();
+    if (hazard.distance < 9.5) {
+      const labels = {
+        avalanche: ['Avalanche Path', 'Move out of the slide path.'],
+        blizzard: ['Whiteout Zone', 'Follow the rope and slow down.'],
+        crevasse: ['Crevasse Ahead', 'Cross carefully and stay near the rope.'],
+        spirit: ['Mountain Spirit', 'Patience matters here. Ease your pace.']
+      };
+      const [title, body] = labels[hazard.type] || ['Hazard Ahead', 'Stay alert and keep moving.'];
+      return { kind: 'danger', title, body };
+    }
+
+    return null;
+  }
+
   renderMenu() {
     const bestRows = this.levels.map((level) => `<li><span>${level.name}</span><b>${this.records[level.id] ? this.formatTime(this.records[level.id]) : '--:--'}</b></li>`).join('');
     this.uiRoot.innerHTML = `
@@ -896,6 +930,10 @@ export class GameScene {
           <p>${this.t(dialogue)}</p>
           <small>${this.level.festival}</small>
         </div>
+        <div id="promptPanel" class="prompt hidden">
+          <b id="promptTitle"></b>
+          <span id="promptBody"></span>
+        </div>
         <div class="status"><span id="timeLabel">00:00</span><span id="progressLabel">0%</span><span id="campLabel">Base Camp</span><span id="messageLabel">WASD to guide · Space to rest</span></div>
       </section>`;
     this.uiRoot.querySelector('#menuButton').addEventListener('click', () => {
@@ -919,6 +957,13 @@ export class GameScene {
     this.uiRoot.querySelector('#progressLabel').textContent = `${Math.round(progress)}%`;
     this.uiRoot.querySelector('#campLabel').textContent = camp ? camp.name : 'Base Camp';
     this.uiRoot.querySelector('#messageLabel').textContent = this.metrics.message || 'Guide the climbers, conserve oxygen, reach the summit.';
+    const prompt = this.hudPrompt();
+    const promptPanel = this.uiRoot.querySelector('#promptPanel');
+    if (promptPanel) {
+      promptPanel.className = prompt ? `prompt ${prompt.kind}` : 'prompt hidden';
+      this.uiRoot.querySelector('#promptTitle').textContent = prompt?.title || '';
+      this.uiRoot.querySelector('#promptBody').textContent = prompt?.body || '';
+    }
   }
 
   renderResult(success) {
