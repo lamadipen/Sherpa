@@ -12,6 +12,7 @@ import {
   SceneLoader,
   StandardMaterial,
   Texture,
+  TransformNode,
   VertexBuffer,
   VertexData,
   Vector3
@@ -20,6 +21,8 @@ import { HimalayanProps } from '../entities/HimalayanProps.js';
 import { KarmaPlayer } from '../entities/KarmaPlayer.js';
 
 const ASSET_ROOT = '/assets/vendor/kenney/nature-kit/Models/GLTF%20format/';
+const BASE_FOG_DENSITY = 0.0011;
+const BASE_SNOW_RATE = 440;
 const SNOW_PARTICLE =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAQAAACFSYyZAAAAEElEQVR42mP8z8AARLJAhQIAHhMD/WSW4hsAAAAASUVORK5CYII=';
 
@@ -62,7 +65,7 @@ export class GameScene {
     this.camera.wheelDeltaPercentage = 0.02;
     this.camera.maxZ = 1200;
     this.scene.fogMode = Scene.FOGMODE_EXP2;
-    this.scene.fogDensity = 0.0011;
+    this.scene.fogDensity = BASE_FOG_DENSITY;
     this.scene.fogColor = Color3.FromHexString('#b9ddf4');
 
     const hemi = new HemisphericLight('hemi', new Vector3(0, 1, 0), this.scene);
@@ -94,7 +97,11 @@ export class GameScene {
       routeFlag: this.mat('routeFlag', '#d62839'),
       ice: this.mat('ice', '#73c7df', 0.58),
       hazard: this.mat('hazard', '#101927'),
+      crevasseEdge: this.mat('crevasseEdge', '#07111c'),
+      crevasseIce: this.mat('crevasseIce', '#5bbfd4', 0.68),
       avalanche: this.mat('avalanche', '#ffffff'),
+      avalancheShadow: this.mat('avalancheShadow', '#cad9df', 0.78),
+      blizzardWind: this.mat('blizzardWind', '#dff4ff', 0.34),
       spirit: this.mat('spirit', '#80ffe0', 0.45),
       checkpoint: this.mat('checkpoint', '#ffcf5a')
     };
@@ -122,7 +129,7 @@ export class GameScene {
     system.maxSize = 0.18;
     system.minLifeTime = 4;
     system.maxLifeTime = 9;
-    system.emitRate = 440;
+    system.emitRate = BASE_SNOW_RATE;
     system.gravity = new Vector3(-0.25, -1.2, -0.2);
     system.direction1 = new Vector3(-0.8, -1, -0.4);
     system.direction2 = new Vector3(0.4, -1, 0.2);
@@ -221,6 +228,8 @@ export class GameScene {
     this.player.reset();
     this.player.root.position.x = this.routeCenterAt(this.player.root.position.z);
     this.scene.clearColor = Color4.FromHexString(`${this.level.sky}dd`);
+    this.scene.fogDensity = BASE_FOG_DENSITY;
+    if (this.snow) this.snow.emitRate = BASE_SNOW_RATE;
     this.clearLevel();
     this.buildMountain();
     this.player.root.position.y = this.terrainHeightAt(this.player.root.position.x, this.player.root.position.z) + 0.7;
@@ -470,21 +479,82 @@ export class GameScene {
   }
 
   createHazard(type, x, z) {
-    let mesh;
-    if (type === 'crevasse') {
-      mesh = MeshBuilder.CreateBox(`hazard-${type}`, { width: 7, height: 0.14, depth: 2.4 }, this.scene);
-      mesh.material = this.materials.hazard;
-    } else if (type === 'avalanche') {
-      mesh = MeshBuilder.CreateSphere(`hazard-${type}`, { diameter: 2.8, segments: 12 }, this.scene);
-      mesh.material = this.materials.avalanche;
-    } else {
-      mesh = MeshBuilder.CreateTorus(`hazard-${type}`, { diameter: 3.2, thickness: 0.08 }, this.scene);
-      mesh.material = this.materials.spirit;
-    }
-    const lift = type === 'crevasse' ? 0.08 : 1.3;
     const routeX = this.routeCenterAt(z) + x;
-    mesh.position.set(routeX, this.terrainHeightAt(routeX, z) + lift, z);
-    mesh.metadata = { type, routeOffset: x, speed: 0.7 + Math.random() * 0.8, phase: Math.random() * 6 };
+    if (type === 'crevasse') return this.createCrevasse(routeX, z, x);
+    if (type === 'avalanche') return this.createAvalanche(routeX, z, x);
+    if (type === 'blizzard') return this.createBlizzard(routeX, z, x);
+    return this.createSpirit(routeX, z, x);
+  }
+
+  createCrevasse(x, z, routeOffset) {
+    const root = new TransformNode('hazard-crevasse', this.scene);
+    root.position.set(x, this.terrainHeightAt(x, z) + 0.08, z);
+    root.rotation.y = 0.45 + Math.sin(z * 0.17) * 0.22;
+    root.metadata = { type: 'crevasse', routeOffset, speed: 0, phase: Math.random() * 6 };
+
+    const chasm = MeshBuilder.CreateBox('hazard-crevasse-chasm', { width: 8.6, height: 0.08, depth: 0.92 }, this.scene);
+    chasm.parent = root;
+    chasm.material = this.materials.crevasseEdge;
+
+    const ice = MeshBuilder.CreateBox('hazard-crevasse-ice', { width: 7.8, height: 0.04, depth: 0.32 }, this.scene);
+    ice.parent = root;
+    ice.position.y = 0.05;
+    ice.material = this.materials.crevasseIce;
+
+    [-2.9, -1.2, 1.5, 3.2].forEach((offset, index) => {
+      const crack = MeshBuilder.CreateBox(`hazard-crevasse-finger-${index}`, { width: 2.2, height: 0.05, depth: 0.16 }, this.scene);
+      crack.parent = root;
+      crack.position.set(offset, 0.06, index % 2 === 0 ? -0.62 : 0.62);
+      crack.rotation.y = index % 2 === 0 ? -0.55 : 0.5;
+      crack.material = this.materials.crevasseEdge;
+    });
+
+    return root;
+  }
+
+  createAvalanche(x, z, routeOffset) {
+    const side = routeOffset < 0 ? -1 : 1;
+    const root = new TransformNode('hazard-avalanche', this.scene);
+    const startX = this.routeCenterAt(z) + side * (17 + Math.random() * 5);
+    root.position.set(startX, this.terrainHeightAt(startX, z) + 1.15, z + 16);
+    root.metadata = { type: 'avalanche', side, speed: 5.4 + Math.random() * 1.8, phase: Math.random() * 6 };
+
+    const boulder = MeshBuilder.CreateSphere('hazard-avalanche-core', { diameter: 2.4, segments: 12 }, this.scene);
+    boulder.parent = root;
+    boulder.material = this.materials.avalanche;
+
+    for (let i = 0; i < 5; i += 1) {
+      const plume = MeshBuilder.CreateSphere(`hazard-avalanche-plume-${i}`, { diameter: 1.1 + i * 0.18, segments: 8 }, this.scene);
+      plume.parent = root;
+      plume.position.set(side * (0.9 + i * 0.28), -0.14 + i * 0.03, 0.8 + i * 0.52);
+      plume.material = this.materials.avalancheShadow;
+    }
+
+    return root;
+  }
+
+  createBlizzard(x, z, routeOffset) {
+    const root = new TransformNode('hazard-blizzard', this.scene);
+    root.position.set(x, this.terrainHeightAt(x, z) + 2.2, z);
+    root.metadata = { type: 'blizzard', routeOffset, speed: 1.2 + Math.random() * 0.7, phase: Math.random() * 6 };
+
+    for (let i = 0; i < 6; i += 1) {
+      const gust = MeshBuilder.CreateTorus(`hazard-blizzard-gust-${i}`, { diameter: 3.4 + i * 0.38, thickness: 0.035, tessellation: 24 }, this.scene);
+      gust.parent = root;
+      gust.position.set(Math.sin(i) * 1.5, -0.55 + i * 0.18, Math.cos(i * 0.7) * 1.1);
+      gust.rotation.x = Math.PI / 2;
+      gust.rotation.z = i * 0.52;
+      gust.material = this.materials.blizzardWind;
+    }
+
+    return root;
+  }
+
+  createSpirit(x, z, routeOffset) {
+    const mesh = MeshBuilder.CreateTorus('hazard-spirit', { diameter: 3.2, thickness: 0.08 }, this.scene);
+    mesh.material = this.materials.spirit;
+    mesh.position.set(x, this.terrainHeightAt(x, z) + 1.3, z);
+    mesh.metadata = { type: 'spirit', routeOffset, speed: 0.7 + Math.random() * 0.8, phase: Math.random() * 6 };
     return mesh;
   }
 
@@ -511,27 +581,61 @@ export class GameScene {
   }
 
   updateHazards(delta) {
+    let blizzardPressure = 0;
     this.hazards.forEach((hazard) => {
       const data = hazard.metadata;
       if (data.type === 'avalanche') {
-        hazard.position.z -= delta * (1.2 + this.level.difficulty);
-        if (hazard.position.z < this.player.root.position.z - 28) hazard.position.z += 92;
-        hazard.position.x = this.routeCenterAt(hazard.position.z) + data.routeOffset + Math.sin(this.metrics.time * data.speed + data.phase) * 6;
-        hazard.position.y = this.routeHeightAt(hazard.position.z, hazard.position.x) + 1.3;
+        hazard.position.z -= delta * (data.speed + this.level.difficulty * 1.2);
+        const routeX = this.routeCenterAt(hazard.position.z);
+        hazard.position.x += (routeX - hazard.position.x) * Math.min(1, delta * 0.7);
+        hazard.position.x += Math.sin(this.metrics.time * 3 + data.phase) * delta * 0.85;
+        if (hazard.position.z < this.player.root.position.z - 34) {
+          hazard.position.z = this.player.root.position.z + 72;
+          hazard.position.x = this.routeCenterAt(hazard.position.z) + data.side * (18 + Math.random() * 6);
+        }
+        hazard.position.y = this.routeHeightAt(hazard.position.z, hazard.position.x) + 1.15;
+        hazard.rotation.y += delta * 2.5 * data.side;
       } else if (data.type === 'spirit') {
         hazard.rotation.y += delta * 1.8;
         hazard.position.x = this.routeCenterAt(hazard.position.z) + data.routeOffset;
         hazard.position.y = this.routeHeightAt(hazard.position.z, hazard.position.x) + 1.3 + Math.sin(this.metrics.time * 2 + data.phase) * 0.3;
+      } else if (data.type === 'blizzard') {
+        hazard.position.x = this.routeCenterAt(hazard.position.z) + data.routeOffset + Math.sin(this.metrics.time * data.speed + data.phase) * 1.8;
+        hazard.position.y = this.routeHeightAt(hazard.position.z, hazard.position.x) + 2.2 + Math.sin(this.metrics.time * 2.2 + data.phase) * 0.35;
+        hazard.getChildMeshes().forEach((gust, index) => {
+          gust.rotation.z += delta * (1.4 + index * 0.22);
+          gust.scaling.setAll(1 + Math.sin(this.metrics.time * 2 + index) * 0.08);
+        });
       }
 
       const distance = Vector3.Distance(hazard.position, this.player.root.position);
+      if (data.type === 'blizzard') {
+        blizzardPressure = Math.max(blizzardPressure, Math.max(0, 1 - distance / 18));
+      }
       if (distance < (data.type === 'crevasse' ? 3.6 : 2.8)) {
         this.metrics.stamina -= 22 * delta;
         this.metrics.oxygen -= 8 * delta;
         this.metrics.morale -= 10 * delta;
-        this.metrics.message = data.type === 'spirit' ? 'The mountain spirit demands patience.' : 'Hold the rope. Stabilize the team.';
+        this.metrics.message = data.type === 'spirit'
+          ? 'The mountain spirit demands patience.'
+          : data.type === 'blizzard'
+            ? 'Whiteout. Follow the rope and slow down.'
+            : data.type === 'avalanche'
+              ? 'Avalanche crossing. Move out of the slide path.'
+              : 'Crevasse underfoot. Keep weight on the rope.';
       }
     });
+
+    const fogTarget = BASE_FOG_DENSITY + blizzardPressure * 0.014;
+    this.scene.fogDensity += (fogTarget - this.scene.fogDensity) * Math.min(1, delta * 3.5);
+    if (this.snow) {
+      const snowTarget = BASE_SNOW_RATE + blizzardPressure * 1800;
+      this.snow.emitRate += (snowTarget - this.snow.emitRate) * Math.min(1, delta * 3);
+    }
+    if (blizzardPressure > 0.25) {
+      this.metrics.stamina -= delta * blizzardPressure * 4.5;
+      this.metrics.morale -= delta * blizzardPressure * 1.8;
+    }
   }
 
   updateCamera(delta) {
