@@ -65,7 +65,6 @@ export class GameScene {
   setupScene() {
     this.scene.clearColor = Color4.FromHexString('#b9ddf4ff');
     this.camera = new ArcRotateCamera('camera', Math.PI / 2, 1.1, 30, new Vector3(0, 3, -70), this.scene);
-    this.camera.attachControl(this.canvas, true);
     this.camera.lowerRadiusLimit = 16;
     this.camera.upperRadiusLimit = 58;
     this.camera.wheelDeltaPercentage = 0.02;
@@ -259,7 +258,25 @@ export class GameScene {
   }
 
   defaultMetrics() {
-    return { oxygen: 100, stamina: 100, morale: 82, climbers: 3, time: 0, campIndex: 0, campReady: false, message: '' };
+    return {
+      oxygen: 100,
+      stamina: 100,
+      morale: 100,
+      climbers: 3,
+      time: 0,
+      campIndex: 0,
+      campReady: false,
+      campsUsed: 0,
+      hazardHits: 0,
+      climberRisk: 0,
+      message: '',
+      messageTimer: 0
+    };
+  }
+
+  setMessage(message, duration = 5) {
+    this.metrics.message = message;
+    this.metrics.messageTimer = duration;
   }
 
   campDefinitions() {
@@ -797,6 +814,10 @@ export class GameScene {
       return;
     }
     if (this.state !== 'playing') return;
+    if (this.metrics.messageTimer > 0) {
+      this.metrics.messageTimer = Math.max(0, this.metrics.messageTimer - delta);
+      if (this.metrics.messageTimer === 0) this.metrics.message = '';
+    }
     const level = this.level;
     const movementContext = this.movementContextAt(this.player.root.position);
     this.player.update(this.input, delta, level, movementContext);
@@ -813,9 +834,9 @@ export class GameScene {
     this.metrics.stamina = Math.max(0, Math.min(100, this.metrics.stamina));
     this.metrics.morale -= delta * (this.metrics.oxygen < 35 ? 1.2 : 0.12);
     if (isMoving && movementContext.steepness > 0.62 && !this.metrics.message) {
-      this.metrics.message = 'Steep grade. Short steps save stamina.';
+      this.setMessage('Steep grade. Short steps save stamina.', 4);
     } else if (isMoving && movementContext.icy > 0.52 && !this.metrics.message) {
-      this.metrics.message = 'Blue ice. Hold the rope against the side drift.';
+      this.setMessage('Blue ice. Hold the rope against the side drift.', 4);
     }
 
     this.updateHazards(delta);
@@ -872,16 +893,29 @@ export class GameScene {
       const damage = hazardDamage[data.type] || hazardDamage.spirit;
       if (distance < damage.radius) {
         const pressure = 1 - distance / damage.radius;
+        if (!data.touching) {
+          data.touching = true;
+          this.metrics.hazardHits += 1;
+        }
         this.metrics.stamina -= damage.stamina * pressure * delta;
         this.metrics.oxygen -= damage.oxygen * pressure * delta;
         this.metrics.morale -= damage.morale * pressure * delta;
-        this.metrics.message = data.type === 'spirit'
+        this.metrics.climberRisk += pressure * delta * (data.type === 'avalanche' ? 1.7 : data.type === 'crevasse' ? 1.4 : 0.85);
+        if (this.metrics.climberRisk > 8 && this.metrics.climbers > 1) {
+          this.metrics.climbers -= 1;
+          this.metrics.climberRisk = 0;
+          this.setMessage('A climber turns back. Karma keeps the remaining team moving.', 6);
+        } else {
+          this.setMessage(data.type === 'spirit'
           ? 'The mountain spirit demands patience.'
           : data.type === 'blizzard'
             ? 'Whiteout. Follow the rope and slow down.'
             : data.type === 'avalanche'
               ? 'Avalanche crossing. Move out of the slide path.'
-              : 'Crevasse underfoot. Keep weight on the rope.';
+              : 'Crevasse underfoot. Keep weight on the rope.', 4);
+        }
+      } else {
+        data.touching = false;
       }
     });
 
@@ -952,7 +986,7 @@ export class GameScene {
     this.camera.alpha = -Math.PI / 2 + Math.sin(orbit) * 0.18;
     this.camera.beta = 0.98;
     this.paintHud();
-    if (this.summitTimer > 2.8) {
+    if (this.summitTimer > 7) {
       this.state = 'summit-result';
       this.renderResult(true);
     }
@@ -975,9 +1009,9 @@ export class GameScene {
       if (progress >= camp.progress && this.metrics.campIndex < i) {
         this.metrics.campIndex = i;
         this.metrics.campReady = !camp.used;
-        this.metrics.message = camp.used
+        this.setMessage(camp.used
           ? `${camp.name} reached. Supplies already used.`
-          : `${camp.name} reached. Press E to resupply.`;
+          : `${camp.name} reached. Press E to resupply.`, 6);
       }
     }
   }
@@ -991,8 +1025,9 @@ export class GameScene {
     this.metrics.morale = Math.min(100, this.metrics.morale + camp.morale);
     this.metrics.campReady = false;
     camp.used = true;
+    this.metrics.campsUsed += 1;
     this.audio.camp();
-    this.metrics.message = `${camp.name}: oxygen, tea, and a slower heartbeat.`;
+    this.setMessage(`${camp.name}: oxygen, tea, and a slower heartbeat.`, 6);
   }
 
   finish(success) {
@@ -1006,7 +1041,7 @@ export class GameScene {
         this.records[this.level.id] = this.metrics.time;
         localStorage.setItem('sherpa.records', JSON.stringify(this.records));
       }
-      this.metrics.message = 'Summit reached. Breathe, look, remember.';
+      this.setMessage('Summit reached. Breathe, look, remember.', 8);
       return;
     }
     this.audio.fail();
@@ -1103,7 +1138,7 @@ export class GameScene {
           <b id="promptTitle"></b>
           <span id="promptBody"></span>
         </div>
-        <div class="status"><span id="timeLabel">00:00</span><span id="progressLabel">0%</span><span id="campLabel">Base Camp</span><span id="messageLabel">WASD to guide · Space to rest</span></div>
+        <div class="status"><span id="timeLabel">00:00</span><span id="progressLabel">0%</span><span id="campLabel">Base Camp</span><span id="climberLabel">3/3 climbers</span><span id="messageLabel">WASD to guide · Space to rest</span></div>
       </section>`;
     this.uiRoot.querySelector('#menuButton').addEventListener('click', () => {
       this.state = 'menu';
@@ -1125,6 +1160,7 @@ export class GameScene {
     this.uiRoot.querySelector('#timeLabel').textContent = this.formatTime(this.metrics.time);
     this.uiRoot.querySelector('#progressLabel').textContent = `${Math.round(progress)}%`;
     this.uiRoot.querySelector('#campLabel').textContent = camp ? camp.name : 'Base Camp';
+    this.uiRoot.querySelector('#climberLabel').textContent = `${this.metrics.climbers}/3 climbers`;
     this.uiRoot.querySelector('#messageLabel').textContent = this.metrics.message || 'Guide the climbers, conserve oxygen, reach the summit.';
     const prompt = this.hudPrompt();
     const promptPanel = this.uiRoot.querySelector('#promptPanel');
@@ -1135,32 +1171,79 @@ export class GameScene {
     }
   }
 
+  karmaScore(success) {
+    const survival = this.metrics.climbers * 120;
+    const reserves = Math.round(this.metrics.oxygen + this.metrics.stamina + this.metrics.morale);
+    const restraint = Math.max(0, 160 - this.metrics.hazardHits * 22);
+    const campWisdom = this.metrics.campsUsed * 24;
+    const speedPressure = success ? Math.max(0, 120 - Math.floor(this.metrics.time * 0.45)) : 0;
+    return Math.max(0, Math.round((success ? 180 : 40) + survival + reserves + restraint + campWisdom + speedPressure));
+  }
+
+  resultRows(success) {
+    return [
+      ['Time', this.formatTime(this.metrics.time)],
+      ['Karma score', this.karmaScore(success)],
+      ['Climbers', `${this.metrics.climbers}/3`],
+      ['Oxygen', `${Math.max(0, Math.round(this.metrics.oxygen))}%`],
+      ['Stamina', `${Math.max(0, Math.round(this.metrics.stamina))}%`],
+      ['Morale', `${Math.max(0, Math.round(this.metrics.morale))}%`],
+      ['Hazard contacts', this.metrics.hazardHits],
+      ['Camps used', `${this.metrics.campsUsed}/3`]
+    ];
+  }
+
   renderResult(success) {
     const next = Math.min(this.levelIndex + 1, this.levels.length - 1);
     const title = success ? 'Summit Reached' : 'Expedition Turned Back';
     const copy = success
-      ? `${this.level.name} allowed Karma's team to stand on the summit. Respect earned in ${this.formatTime(this.metrics.time)}.`
+      ? `${this.level.name} allowed Karma's team to stand on the summit. The mountain remembers more than speed.`
       : 'Karma chose survival over glory. The mountain will still be there tomorrow.';
+    const rows = this.resultRows(success).map(([label, value]) => `<li><span>${label}</span><b>${value}</b></li>`).join('');
+    const isFinalPeak = success && this.levelIndex === this.levels.length - 1;
     this.uiRoot.innerHTML = `
       <section class="result">
         <div>
           <p class="eyebrow">${this.level.mood}</p>
           <h1>${title}</h1>
           <p>${copy}</p>
+          <ul class="runStats">${rows}</ul>
           <div class="actions">
             <button id="retryButton">${success ? 'Climb Again' : 'Retry'}</button>
-            <button id="nextButton">${this.levelIndex === this.levels.length - 1 ? 'Leaderboard' : 'Next Mountain'}</button>
+            <button id="nextButton">${isFinalPeak ? 'Five Summits' : this.levelIndex === this.levels.length - 1 ? 'Leaderboard' : 'Next Mountain'}</button>
           </div>
         </div>
       </section>`;
     this.uiRoot.querySelector('#retryButton').addEventListener('click', () => this.beginLevel(this.levelIndex));
     this.uiRoot.querySelector('#nextButton').addEventListener('click', () => {
-      if (this.levelIndex === this.levels.length - 1) {
+      if (isFinalPeak) {
+        this.renderFiveSummits();
+      } else if (this.levelIndex === this.levels.length - 1) {
         this.state = 'menu';
         this.renderMenu();
       } else {
         this.beginLevel(next);
       }
+    });
+  }
+
+  renderFiveSummits() {
+    const bestRows = this.levels.map((level) => `<li><span>${level.name}</span><b>${this.records[level.id] ? this.formatTime(this.records[level.id]) : '--:--'}</b></li>`).join('');
+    this.uiRoot.innerHTML = `
+      <section class="result finale">
+        <div>
+          <p class="eyebrow">Five mountains, one rope</p>
+          <h1>Five Summits</h1>
+          <p>Karma has guided teams across Nepal's great peaks. The leaderboard keeps time; the mountains keep the lesson.</p>
+          <ul class="runStats">${bestRows}</ul>
+          <div class="actions">
+            <button id="menuButton">Return to Menu</button>
+          </div>
+        </div>
+      </section>`;
+    this.uiRoot.querySelector('#menuButton').addEventListener('click', () => {
+      this.state = 'menu';
+      this.renderMenu();
     });
   }
 }

@@ -23,3 +23,7 @@ coverage/
 .idea/
 .vscode/
 *.swp
+
+# Local agent / browser tooling
+.claude/
+.playwright-mcp/
