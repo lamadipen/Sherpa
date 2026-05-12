@@ -139,6 +139,23 @@ export class GameScene {
     return clone;
   }
 
+  routeHeightAt(z, x = 0) {
+    const level = this.level || { routeLength: 180, difficulty: 1 };
+    const progress = Math.max(0, Math.min(1, (z + 88) / level.routeLength));
+    const climb = 24 + level.difficulty * 8;
+    const roll = Math.sin(progress * Math.PI * 2.6) * 0.9;
+    const shoulder = Math.max(0, Math.abs(x) - 8) * 0.06;
+    return progress ** 1.18 * climb + roll + shoulder;
+  }
+
+  routePosition(x, z, lift = 0) {
+    return new Vector3(x, this.routeHeightAt(z, x) + lift, z);
+  }
+
+  cloneAssetOnRoute(file, name, x, z, scale = 1, rotationY = 0, lift = 0) {
+    return this.cloneAsset(file, name, this.routePosition(x, z, lift), scale, rotationY);
+  }
+
   bindInput() {
     const set = (key, value) => {
       const code = key.toLowerCase();
@@ -166,6 +183,7 @@ export class GameScene {
     this.scene.clearColor = Color4.FromHexString(`${this.level.sky}dd`);
     this.clearLevel();
     this.buildMountain();
+    this.player.root.position.y = this.routeHeightAt(this.player.root.position.z, this.player.root.position.x) + 0.7;
     this.spawnHazards();
     this.renderHud();
   }
@@ -179,36 +197,49 @@ export class GameScene {
 
   buildMountain() {
     const level = this.level;
-    const ground = MeshBuilder.CreateGround('route-snowfield', { width: 38, height: level.routeLength + 42, subdivisions: 72 }, this.scene);
-    ground.position.z = level.routeLength / 2 - 74;
-    ground.material = this.materials.snow;
+    const routeSegments = 22;
+    const routeDepth = (level.routeLength + 28) / routeSegments;
+    const routeGrade = Math.atan((24 + level.difficulty * 8) / level.routeLength);
+    for (let i = 0; i < routeSegments; i += 1) {
+      const z = -92 + routeDepth * (i + 0.5);
+      const progress = i / Math.max(1, routeSegments - 1);
+      const width = 38 - progress * 13;
+      const slab = MeshBuilder.CreateBox(`route-snowfield-${i}`, { width, height: 0.36, depth: routeDepth + 1.4 }, this.scene);
+      slab.position.set(0, this.routeHeightAt(z) - 0.18, z);
+      slab.rotation.x = -routeGrade * 0.42;
+      slab.material = this.materials.snow;
+    }
 
     for (let i = 0; i < 30; i += 1) {
       const z = -82 + i * 9.2;
       const width = 14 + Math.sin(i * 0.77) * 3;
       const ridgeL = MeshBuilder.CreateBox(`route-ridge-l-${i}`, { width: 7, height: 2.8 + i * 0.02, depth: 9 }, this.scene);
-      ridgeL.position.set(-width - 7, 0.6, z);
+      ridgeL.position.set(-width - 7, this.routeHeightAt(z, -width - 7) + 0.6, z);
       ridgeL.rotation.z = 0.22;
       ridgeL.material = this.materials.ridge;
       const ridgeR = ridgeL.clone(`route-ridge-r-${i}`);
       ridgeR.position.x = width + 7;
+      ridgeR.position.y = this.routeHeightAt(z, width + 7) + 0.6;
       ridgeR.rotation.z = -0.22;
     }
 
     const summit = MeshBuilder.CreateCylinder('summit-marker', { height: 8, diameterTop: 0, diameterBottom: 18, tessellation: 4 }, this.scene);
-    summit.position.set(0, 3.4, level.routeLength - 82);
+    summit.position.set(0, this.routeHeightAt(level.routeLength - 82) + 3.4, level.routeLength - 82);
     summit.rotation.y = Math.PI / 4;
     summit.material = this.materials.ridge;
 
-    this.cloneAsset('tent_detailedOpen.glb', 'basecamp-tent', new Vector3(-8, 0.4, -84), 1.5, 0.5);
-    this.cloneAsset('campfire_stones.glb', 'basecamp-fire', new Vector3(5, 0.08, -83), 1.2, 0);
-    this.cloneAsset('bridge_wood.glb', 'checkpoint-bridge', new Vector3(0, 0.2, -82 + level.routeLength * 0.48), 1.2, Math.PI / 2);
-    this.props.push(this.himalayanProps.createLodge('basecamp-lodge', new Vector3(-14, 0.2, -88), { rotationY: -0.36 }));
-    this.props.push(this.himalayanProps.createLodge('checkpoint-teahouse', new Vector3(13, 0.2, -86 + level.routeLength * 0.48), { rotationY: 0.52, roofColor: '#7f2c25' }));
-    this.props.push(this.himalayanProps.createPrayerFlags('route-prayer-flags', new Vector3(-11, 2.4, -65), new Vector3(10, 2.9, -58)));
+    const checkpointZ = -82 + level.routeLength * 0.48;
+    this.cloneAssetOnRoute('tent_detailedOpen.glb', 'basecamp-tent', -8, -84, 1.5, 0.5, 0.4);
+    this.cloneAssetOnRoute('campfire_stones.glb', 'basecamp-fire', 5, -83, 1.2, 0, 0.08);
+    this.cloneAssetOnRoute('bridge_wood.glb', 'checkpoint-bridge', 0, checkpointZ, 1.2, Math.PI / 2, 0.2);
+    this.props.push(this.himalayanProps.createLodge('basecamp-lodge', this.routePosition(-14, -88, 0.2), { rotationY: -0.36 }));
+    this.props.push(this.himalayanProps.createLodge('checkpoint-teahouse', this.routePosition(13, checkpointZ - 4, 0.2), { rotationY: 0.52, roofColor: '#7f2c25' }));
+    this.props.push(this.himalayanProps.createPrayerFlags('route-prayer-flags', this.routePosition(-11, -65, 2.4), this.routePosition(10, -58, 2.9)));
     for (let i = 0; i < 18; i += 1) {
       const side = i % 2 === 0 ? -1 : 1;
-      this.cloneAsset(i % 3 === 0 ? 'tree_pineRoundC.glb' : 'rock_tallH.glb', `route-prop-${i}`, new Vector3(side * (15 + Math.random() * 8), 0.15, -70 + i * 12), 0.9 + Math.random() * 0.9, Math.random() * Math.PI);
+      const x = side * (15 + Math.random() * 8);
+      const z = -70 + i * 12;
+      this.cloneAssetOnRoute(i % 3 === 0 ? 'tree_pineRoundC.glb' : 'rock_tallH.glb', `route-prop-${i}`, x, z, 0.9 + Math.random() * 0.9, Math.random() * Math.PI, 0.15);
     }
   }
 
@@ -236,7 +267,8 @@ export class GameScene {
       mesh = MeshBuilder.CreateTorus(`hazard-${type}`, { diameter: 3.2, thickness: 0.08 }, this.scene);
       mesh.material = this.materials.spirit;
     }
-    mesh.position.set(x, type === 'crevasse' ? 0.06 : 1.3, z);
+    const lift = type === 'crevasse' ? 0.08 : 1.3;
+    mesh.position.set(x, this.routeHeightAt(z, x) + lift, z);
     mesh.metadata = { type, baseX: x, speed: 0.7 + Math.random() * 0.8, phase: Math.random() * 6 };
     return mesh;
   }
@@ -246,6 +278,7 @@ export class GameScene {
     if (this.state !== 'playing') return;
     const level = this.level;
     this.player.update(this.input, delta, level);
+    this.player.root.position.y = this.routeHeightAt(this.player.root.position.z, this.player.root.position.x) + 0.7;
     this.metrics.time += delta;
     const isMoving = this.input.forward || this.input.left || this.input.right || this.input.back;
     const altitudeFactor = Math.max(0.25, (this.player.root.position.z + 88) / level.routeLength);
@@ -267,9 +300,10 @@ export class GameScene {
         hazard.position.x = data.baseX + Math.sin(this.metrics.time * data.speed + data.phase) * 6;
         hazard.position.z -= delta * (1.2 + this.level.difficulty);
         if (hazard.position.z < this.player.root.position.z - 28) hazard.position.z += 92;
+        hazard.position.y = this.routeHeightAt(hazard.position.z, hazard.position.x) + 1.3;
       } else if (data.type === 'spirit') {
         hazard.rotation.y += delta * 1.8;
-        hazard.position.y = 1.3 + Math.sin(this.metrics.time * 2 + data.phase) * 0.3;
+        hazard.position.y = this.routeHeightAt(hazard.position.z, hazard.position.x) + 1.3 + Math.sin(this.metrics.time * 2 + data.phase) * 0.3;
       }
 
       const distance = Vector3.Distance(hazard.position, this.player.root.position);
@@ -283,11 +317,11 @@ export class GameScene {
   }
 
   updateCamera(delta) {
-    const target = this.player.root.position.add(new Vector3(0, 4, 8));
+    const target = this.player.root.position.add(new Vector3(0, 5.5, 10));
     this.camera.target = Vector3.Lerp(this.camera.target, target, Math.min(1, delta * 3.5));
-    this.camera.radius = 32;
-    this.camera.alpha = Math.PI / 2;
-    this.camera.beta = 1.05;
+    this.camera.radius = 28;
+    this.camera.alpha = -Math.PI / 2;
+    this.camera.beta = 1.08;
   }
 
   checkProgress() {
