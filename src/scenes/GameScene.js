@@ -241,12 +241,22 @@ export class GameScene {
   }
 
   defaultMetrics() {
-    return { oxygen: 100, stamina: 100, morale: 82, climbers: 3, time: 0, checkpoint: 0, message: '' };
+    return { oxygen: 100, stamina: 100, morale: 82, climbers: 3, time: 0, campIndex: 0, campReady: false, message: '' };
+  }
+
+  campDefinitions() {
+    return [
+      { id: 'base', name: 'Base Camp', progress: 0, used: true },
+      { id: 'camp1', name: 'Camp I', progress: 0.28, oxygen: 18, stamina: 28, morale: 8, used: false },
+      { id: 'camp2', name: 'Camp II', progress: 0.56, oxygen: 24, stamina: 32, morale: 12, used: false },
+      { id: 'summit-push', name: 'Summit Push', progress: 0.78, oxygen: 16, stamina: 24, morale: 18, used: false }
+    ];
   }
 
   async beginLevel(index) {
     this.levelIndex = index;
     this.level = this.levels[index];
+    this.camps = this.campDefinitions();
     this.state = 'playing';
     this.metrics = this.defaultMetrics();
     this.player.reset();
@@ -297,12 +307,10 @@ export class GameScene {
     this.buildHorizonPeaks();
     this.buildSurroundingMountains();
 
-    const checkpointZ = -82 + level.routeLength * 0.48;
     this.cloneAssetOnRoute('tent_detailedOpen.glb', 'basecamp-tent', this.routeCenterAt(-84) - 8, -84, 1.5, 0.5, 0.4);
     this.cloneAssetOnRoute('campfire_stones.glb', 'basecamp-fire', this.routeCenterAt(-83) + 5, -83, 1.2, 0, 0.08);
-    this.cloneAssetOnRoute('bridge_wood.glb', 'checkpoint-bridge', this.routeCenterAt(checkpointZ), checkpointZ, 1.2, Math.PI / 2, 0.2);
     this.props.push(this.himalayanProps.createLodge('basecamp-lodge', this.routePosition(this.routeCenterAt(-88) - 14, -88, 0.2), { rotationY: -0.36 }));
-    this.props.push(this.himalayanProps.createLodge('checkpoint-teahouse', this.routePosition(this.routeCenterAt(checkpointZ - 4) + 13, checkpointZ - 4, 0.2), { rotationY: 0.52, roofColor: '#7f2c25' }));
+    this.createExpeditionCamps();
     this.props.push(this.himalayanProps.createPrayerFlags('route-prayer-flags', this.routePosition(this.routeCenterAt(-65) - 11, -65, 2.4), this.routePosition(this.routeCenterAt(-58) + 10, -58, 2.9)));
     for (let i = 0; i < 18; i += 1) {
       const side = i % 2 === 0 ? -1 : 1;
@@ -310,6 +318,27 @@ export class GameScene {
       const x = this.routeCenterAt(z) + side * (18 + Math.random() * 10);
       this.cloneAssetOnRoute(i % 3 === 0 ? 'tree_pineRoundC.glb' : 'rock_tallH.glb', `route-prop-${i}`, x, z, 0.9 + Math.random() * 0.9, Math.random() * Math.PI, 0.15);
     }
+  }
+
+  createExpeditionCamps() {
+    this.camps.slice(1).forEach((camp, index) => {
+      const z = -88 + this.level.routeLength * camp.progress;
+      const center = this.routeCenterAt(z);
+      const side = index % 2 === 0 ? -1 : 1;
+      const campX = center + side * 9;
+      this.cloneAssetOnRoute('tent_detailedOpen.glb', `route-${camp.id}-tent`, campX, z, 1.05, side * 0.45, 0.35);
+      this.cloneAssetOnRoute('campfire_stones.glb', `route-${camp.id}-stove`, campX + side * 1.9, z - 1.6, 0.7, 0, 0.08);
+      this.cloneAssetOnRoute('bridge_wood.glb', `route-${camp.id}-supply-cache`, center, z - 2.4, 0.62, Math.PI / 2, 0.18);
+
+      const marker = MeshBuilder.CreateCylinder(`route-${camp.id}-marker`, { height: 2.4, diameter: 0.14, tessellation: 8 }, this.scene);
+      marker.position.set(campX - side * 1.4, this.terrainHeightAt(campX - side * 1.4, z) + 1.2, z);
+      marker.material = this.materials.anchor;
+
+      const flag = MeshBuilder.CreateBox(`route-${camp.id}-flag`, { width: 0.88, height: 0.45, depth: 0.06 }, this.scene);
+      flag.position.set(marker.position.x + side * 0.45, marker.position.y + 0.78, z);
+      flag.rotation.y = side * 0.28;
+      flag.material = this.materials.checkpoint;
+    });
   }
 
   createMountainTerrain() {
@@ -681,10 +710,7 @@ export class GameScene {
 
   checkProgress() {
     const progress = (this.player.root.position.z + 88) / this.level.routeLength;
-    if (progress > 0.48 && this.metrics.checkpoint === 0) {
-      this.metrics.checkpoint = 1;
-      this.metrics.message = 'Checkpoint reached. Press E to resupply.';
-    }
+    this.checkCampProgress(progress);
     if (this.metrics.oxygen <= 0 || this.metrics.morale <= 0 || this.metrics.stamina <= -8) {
       this.finish(false);
     }
@@ -693,13 +719,29 @@ export class GameScene {
     }
   }
 
+  checkCampProgress(progress) {
+    for (let i = 1; i < this.camps.length; i += 1) {
+      const camp = this.camps[i];
+      if (progress >= camp.progress && this.metrics.campIndex < i) {
+        this.metrics.campIndex = i;
+        this.metrics.campReady = !camp.used;
+        this.metrics.message = camp.used
+          ? `${camp.name} reached. Supplies already used.`
+          : `${camp.name} reached. Press E to resupply.`;
+      }
+    }
+  }
+
   useCheckpoint() {
-    if (this.state !== 'playing' || this.metrics.checkpoint !== 1) return;
-    this.metrics.oxygen = Math.min(100, this.metrics.oxygen + 30);
-    this.metrics.stamina = Math.min(100, this.metrics.stamina + 36);
-    this.metrics.morale = Math.min(100, this.metrics.morale + 18);
-    this.metrics.checkpoint = 2;
-    this.metrics.message = 'Tea, oxygen, and a quiet word with the mountain.';
+    if (this.state !== 'playing' || !this.metrics.campReady) return;
+    const camp = this.camps[this.metrics.campIndex];
+    if (!camp || camp.used) return;
+    this.metrics.oxygen = Math.min(100, this.metrics.oxygen + camp.oxygen);
+    this.metrics.stamina = Math.min(100, this.metrics.stamina + camp.stamina);
+    this.metrics.morale = Math.min(100, this.metrics.morale + camp.morale);
+    this.metrics.campReady = false;
+    camp.used = true;
+    this.metrics.message = `${camp.name}: oxygen, tea, and a slower heartbeat.`;
   }
 
   finish(success) {
@@ -774,7 +816,7 @@ export class GameScene {
           <p>${this.t(dialogue)}</p>
           <small>${this.level.festival}</small>
         </div>
-        <div class="status"><span id="timeLabel">00:00</span><span id="progressLabel">0%</span><span id="messageLabel">WASD to guide · Space to rest</span></div>
+        <div class="status"><span id="timeLabel">00:00</span><span id="progressLabel">0%</span><span id="campLabel">Base Camp</span><span id="messageLabel">WASD to guide · Space to rest</span></div>
       </section>`;
     this.uiRoot.querySelector('#menuButton').addEventListener('click', () => {
       this.state = 'menu';
@@ -792,8 +834,10 @@ export class GameScene {
     set('stamina', this.metrics.stamina);
     set('morale', this.metrics.morale);
     const progress = Math.max(0, Math.min(100, ((this.player.root.position.z + 88) / this.level.routeLength) * 100));
+    const camp = this.camps?.[this.metrics.campIndex];
     this.uiRoot.querySelector('#timeLabel').textContent = this.formatTime(this.metrics.time);
     this.uiRoot.querySelector('#progressLabel').textContent = `${Math.round(progress)}%`;
+    this.uiRoot.querySelector('#campLabel').textContent = camp ? camp.name : 'Base Camp';
     this.uiRoot.querySelector('#messageLabel').textContent = this.metrics.message || 'Guide the climbers, conserve oxygen, reach the summit.';
   }
 
