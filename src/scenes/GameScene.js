@@ -40,6 +40,8 @@ export class GameScene {
     this.hazards = [];
     this.props = [];
     this.loadedAssets = new Map();
+    this.cameraBob = 0;
+    this.cameraDanger = 0;
     this.lang = localStorage.getItem('sherpa.lang') || 'en';
     this.records = JSON.parse(localStorage.getItem('sherpa.records') || '{}');
   }
@@ -635,7 +637,7 @@ export class GameScene {
     }
 
     this.updateHazards(delta);
-    this.updateCamera(delta);
+    this.updateCamera(delta, isMoving);
     this.checkProgress();
     this.paintHud();
   }
@@ -698,14 +700,38 @@ export class GameScene {
     }
   }
 
-  updateCamera(delta) {
+  nearestHazardDistance() {
+    if (!this.hazards.length) return Infinity;
+    return this.hazards.reduce((closest, hazard) => Math.min(closest, Vector3.Distance(hazard.position, this.player.root.position)), Infinity);
+  }
+
+  campCameraBoost(progress) {
+    if (!this.camps) return 0;
+    return this.camps.reduce((boost, camp) => {
+      const distance = Math.abs(progress - camp.progress);
+      return Math.max(boost, Math.max(0, 1 - distance / 0.055));
+    }, 0);
+  }
+
+  updateCamera(delta, isMoving = false) {
     const progress = Math.max(0, Math.min(1, (this.player.root.position.z + 88) / this.level.routeLength));
-    const lookAhead = 7 + progress * 7;
-    const target = this.player.root.position.add(new Vector3(0, 3.2 + progress * 2.2, lookAhead));
-    this.camera.target = Vector3.Lerp(this.camera.target, target, Math.min(1, delta * 3.5));
-    this.camera.radius = 24 + progress * 8;
+    const hazardDistance = this.nearestHazardDistance();
+    const hazardBoost = Math.max(0, 1 - hazardDistance / 18);
+    const campBoost = this.campCameraBoost(progress);
+    const summitBoost = Math.max(0, (progress - 0.84) / 0.16);
+    this.cameraDanger += (hazardBoost - this.cameraDanger) * Math.min(1, delta * 4);
+    this.cameraBob += delta * (isMoving ? 7.5 : 2.2);
+
+    const bobY = Math.sin(this.cameraBob) * (isMoving ? 0.22 : 0.06);
+    const bobX = Math.sin(this.cameraBob * 0.5) * (isMoving ? 0.16 : 0.04);
+    const lookAhead = 7 + progress * 7 + this.cameraDanger * 4 + summitBoost * 8;
+    const height = 3.2 + progress * 2.2 + campBoost * 1.8 + summitBoost * 3.8 + bobY;
+    const sideLook = bobX + this.cameraDanger * Math.sin(this.metrics.time * 1.8) * 1.2;
+    const target = this.player.root.position.add(new Vector3(sideLook, height, lookAhead));
+    this.camera.target = Vector3.Lerp(this.camera.target, target, Math.min(1, delta * (this.cameraDanger > 0.2 ? 4.8 : 3.5)));
+    this.camera.radius = 24 + progress * 8 + this.cameraDanger * 8 + campBoost * 5 + summitBoost * 9;
     this.camera.alpha = -Math.PI / 2;
-    this.camera.beta = 1.16;
+    this.camera.beta = 1.16 - campBoost * 0.05 - summitBoost * 0.08 + this.cameraDanger * 0.04;
   }
 
   checkProgress() {
