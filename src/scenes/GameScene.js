@@ -42,6 +42,7 @@ export class GameScene {
     this.loadedAssets = new Map();
     this.cameraBob = 0;
     this.cameraDanger = 0;
+    this.summitTimer = 0;
     this.lang = localStorage.getItem('sherpa.lang') || 'en';
     this.records = JSON.parse(localStorage.getItem('sherpa.records') || '{}');
   }
@@ -306,6 +307,7 @@ export class GameScene {
     summit.position.set(summitX, this.terrainHeightAt(summitX, summitZ) + 3.4, summitZ);
     summit.rotation.y = Math.PI / 4;
     summit.material = this.materials.ridge;
+    this.createSummitCeremony(summitX, summitZ);
     this.buildHorizonPeaks();
     this.buildSurroundingMountains();
 
@@ -341,6 +343,32 @@ export class GameScene {
       flag.rotation.y = side * 0.28;
       flag.material = this.materials.checkpoint;
     });
+  }
+
+  createSummitCeremony(x, z) {
+    const y = this.terrainHeightAt(x, z);
+    const platform = MeshBuilder.CreateCylinder('summit-ceremony-platform', { height: 0.24, diameter: 8.4, tessellation: 24 }, this.scene);
+    platform.position.set(x, y + 0.12, z - 2.2);
+    platform.material = this.materials.pathSnow;
+
+    const cairn = MeshBuilder.CreateCylinder('summit-cairn', { height: 1.1, diameterTop: 0.65, diameterBottom: 1.35, tessellation: 7 }, this.scene);
+    cairn.position.set(x - 1.25, y + 0.72, z - 2.2);
+    cairn.material = this.materials.rock;
+
+    const pole = MeshBuilder.CreateCylinder('summit-prayer-pole', { height: 4.6, diameter: 0.12, tessellation: 8 }, this.scene);
+    pole.position.set(x + 1.5, y + 2.3, z - 2.1);
+    pole.material = this.materials.anchor;
+
+    const flag = MeshBuilder.CreateBox('summit-main-flag', { width: 1.4, height: 0.62, depth: 0.05 }, this.scene);
+    flag.position.set(x + 2.15, y + 4.1, z - 2.1);
+    flag.rotation.y = 0.22;
+    flag.material = this.materials.checkpoint;
+
+    this.props.push(this.himalayanProps.createPrayerFlags(
+      'summit-prayer-flags',
+      new Vector3(x - 4.2, y + 2.25, z - 3.8),
+      new Vector3(x + 4.2, y + 3.15, z - 1.2)
+    ));
   }
 
   createMountainTerrain() {
@@ -615,6 +643,10 @@ export class GameScene {
 
   update() {
     const delta = this.engine.getDeltaTime() / 1000;
+    if (this.state === 'summit') {
+      this.updateSummitMoment(delta);
+      return;
+    }
     if (this.state !== 'playing') return;
     const level = this.level;
     const movementContext = this.movementContextAt(this.player.root.position);
@@ -734,6 +766,25 @@ export class GameScene {
     this.camera.beta = 1.16 - campBoost * 0.05 - summitBoost * 0.08 + this.cameraDanger * 0.04;
   }
 
+  updateSummitMoment(delta) {
+    this.summitTimer += delta;
+    this.metrics.message = 'Summit reached. Breathe, look, remember.';
+    const summitZ = this.level.routeLength - 82;
+    const summitX = this.routeCenterAt(summitZ);
+    const summitY = this.terrainHeightAt(summitX, summitZ);
+    const orbit = this.summitTimer * 0.28;
+    const target = new Vector3(summitX + Math.sin(orbit) * 1.2, summitY + 5.2, summitZ - 2 + Math.cos(orbit) * 1.2);
+    this.camera.target = Vector3.Lerp(this.camera.target, target, Math.min(1, delta * 2.4));
+    this.camera.radius += (42 - this.camera.radius) * Math.min(1, delta * 1.8);
+    this.camera.alpha = -Math.PI / 2 + Math.sin(orbit) * 0.18;
+    this.camera.beta = 0.98;
+    this.paintHud();
+    if (this.summitTimer > 2.8) {
+      this.state = 'summit-result';
+      this.renderResult(true);
+    }
+  }
+
   checkProgress() {
     const progress = (this.player.root.position.z + 88) / this.level.routeLength;
     this.checkCampProgress(progress);
@@ -774,11 +825,14 @@ export class GameScene {
     if (this.state !== 'playing') return;
     this.state = success ? 'summit' : 'failed';
     if (success) {
+      this.summitTimer = 0;
       const best = this.records[this.level.id];
       if (!best || this.metrics.time < best) {
         this.records[this.level.id] = this.metrics.time;
         localStorage.setItem('sherpa.records', JSON.stringify(this.records));
       }
+      this.metrics.message = 'Summit reached. Breathe, look, remember.';
+      return;
     }
     this.renderResult(success);
   }
