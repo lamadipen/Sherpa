@@ -27,6 +27,7 @@ export class KarmaPlayer {
     const wool = this.material('karmaWool', '#f0e6d2');
     const boot = this.material('karmaBoot', '#201713');
     const rope = this.material('karmaRope', '#d9b978');
+    const marker = this.material('karmaMarker', '#ffcf5a');
 
     const body = MeshBuilder.CreateCapsule('karmaBody', { height: 1.45, radius: 0.34 }, this.scene);
     body.material = jacket;
@@ -117,13 +118,20 @@ export class KarmaPlayer {
     pole.position.set(0.48, 0.35, 0.1);
     pole.rotation.z = 0.28;
 
-    return { body, leftLeg, rightLeg, leftBoot, rightBoot, leftArm, rightArm, pole };
+    const overheadMarker = MeshBuilder.CreateTorus('karmaOverheadMarker', { diameter: 0.9, thickness: 0.035, tessellation: 24 }, this.scene);
+    overheadMarker.material = marker;
+    overheadMarker.parent = this.root;
+    overheadMarker.position.y = 2.18;
+    overheadMarker.rotation.x = Math.PI / 2;
+
+    return { body, leftLeg, rightLeg, leftBoot, rightBoot, leftArm, rightArm, pole, overheadMarker };
   }
 
   material(name, hex) {
     const mat = new StandardMaterial(name, this.scene);
     mat.diffuseColor = Color3.FromHexString(hex);
     mat.specularColor = new Color3(0.08, 0.08, 0.08);
+    mat.emissiveColor = name === 'karmaMarker' ? Color3.FromHexString(hex).scale(0.45) : Color3.Black();
     return mat;
   }
 
@@ -166,6 +174,7 @@ export class KarmaPlayer {
     this.meshes.leftArm.rotation.x = Math.sin(this._stepTime + Math.PI) * 0.14;
     this.meshes.rightArm.rotation.x = Math.sin(this._stepTime) * 0.14;
     this.meshes.pole.rotation.x = Math.sin(this._stepTime) * 0.12;
+    this.meshes.overheadMarker.rotation.z += delta * 1.8;
     this.root.rotation.y = -move.x * 0.12;
   }
 }

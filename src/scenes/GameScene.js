@@ -98,15 +98,17 @@ export class GameScene {
       rock: this.mat('rock', '#4c5a61'),
       shadowRock: this.mat('shadowRock', '#334149'),
       horizonRock: this.mat('horizonRock', '#2f4654'),
-      rope: this.mat('routeRope', '#d8b15f'),
+      rope: this.mat('routeRope', '#ffcf5a'),
       anchor: this.mat('routeAnchor', '#29343c'),
       routeFlag: this.mat('routeFlag', '#d62839'),
+      routeGlow: this.mat('routeGlow', '#ffef9f', 0.46),
       ice: this.mat('ice', '#73c7df', 0.58),
       hazard: this.mat('hazard', '#101927'),
       crevasseEdge: this.mat('crevasseEdge', '#07111c'),
       crevasseIce: this.mat('crevasseIce', '#5bbfd4', 0.68),
       avalanche: this.mat('avalanche', '#ffffff'),
       avalancheShadow: this.mat('avalancheShadow', '#cad9df', 0.78),
+      hazardMarker: this.mat('hazardMarker', '#ff4056'),
       blizzardWind: this.mat('blizzardWind', '#dff4ff', 0.34),
       spirit: this.mat('spirit', '#80ffe0', 0.45),
       checkpoint: this.mat('checkpoint', '#ffcf5a')
@@ -293,7 +295,10 @@ export class GameScene {
   applyLevelEnvironment() {
     const env = this.level.environment || {};
     const accent = env.accent || this.level.color || '#ffcf5a';
-    if (this.materials?.routeFlag) this.materials.routeFlag.diffuseColor = Color3.FromHexString(accent);
+    if (this.materials?.routeFlag) {
+      this.materials.routeFlag.diffuseColor = Color3.FromHexString(accent);
+      this.materials.routeFlag.emissiveColor = Color3.FromHexString(accent).scale(0.35);
+    }
     if (this.materials?.checkpoint) this.materials.checkpoint.diffuseColor = Color3.FromHexString(accent);
     if (this.materials?.ice) this.materials.ice.diffuseColor = Color3.FromHexString(this.level.id === 'annapurna' ? '#90d8ef' : '#73c7df');
   }
@@ -449,6 +454,11 @@ export class GameScene {
       flag.position.set(marker.position.x + side * 0.45, marker.position.y + 0.78, z);
       flag.rotation.y = side * 0.28;
       flag.material = this.materials.checkpoint;
+
+      const halo = MeshBuilder.CreateTorus(`route-${camp.id}-halo`, { diameter: 5.2, thickness: 0.045, tessellation: 32 }, this.scene);
+      halo.position.set(center, this.terrainHeightAt(center, z) + 0.18, z);
+      halo.rotation.x = Math.PI / 2;
+      halo.material = this.materials.routeGlow;
     });
   }
 
@@ -457,6 +467,11 @@ export class GameScene {
     const platform = MeshBuilder.CreateCylinder('summit-ceremony-platform', { height: 0.24, diameter: 8.4, tessellation: 24 }, this.scene);
     platform.position.set(x, y + 0.12, z - 2.2);
     platform.material = this.materials.pathSnow;
+
+    const halo = MeshBuilder.CreateTorus('summit-ceremony-halo', { diameter: 10.2, thickness: 0.07, tessellation: 40 }, this.scene);
+    halo.position.set(x, y + 0.28, z - 2.2);
+    halo.rotation.x = Math.PI / 2;
+    halo.material = this.materials.routeGlow;
 
     const cairn = MeshBuilder.CreateCylinder('summit-cairn', { height: 1.1, diameterTop: 0.65, diameterBottom: 1.35, tessellation: 7 }, this.scene);
     cairn.position.set(x - 1.25, y + 0.72, z - 2.2);
@@ -518,11 +533,19 @@ export class GameScene {
 
     const rope = MeshBuilder.CreateTube('route-fixed-rope', {
       path,
-      radius: 0.08,
+      radius: 0.12,
       tessellation: 8,
       cap: MeshBuilder.CAP_ALL
     }, this.scene);
     rope.material = this.materials.rope;
+
+    const ropeGlow = MeshBuilder.CreateTube('route-fixed-rope-glow', {
+      path: path.map((point) => point.add(new Vector3(0, 0.03, 0))),
+      radius: 0.22,
+      tessellation: 8,
+      cap: MeshBuilder.CAP_ALL
+    }, this.scene);
+    ropeGlow.material = this.materials.routeGlow;
 
     for (let i = 0; i <= samples; i += 4) {
       const point = path[i];
@@ -531,7 +554,7 @@ export class GameScene {
       anchor.rotation.x = 0.28;
       anchor.material = this.materials.anchor;
 
-      const flag = MeshBuilder.CreateBox(`route-red-flag-${i}`, { width: 0.5, height: 0.28, depth: 0.04 }, this.scene);
+      const flag = MeshBuilder.CreateBox(`route-red-flag-${i}`, { width: 0.72, height: 0.36, depth: 0.04 }, this.scene);
       flag.position.set(point.x + 0.33, point.y + 0.9, point.z);
       flag.rotation.y = 0.25;
       flag.material = this.materials.routeFlag;
@@ -693,6 +716,12 @@ export class GameScene {
     ice.position.y = 0.05;
     ice.material = this.materials.crevasseIce;
 
+    const warning = MeshBuilder.CreateTorus('hazard-crevasse-warning', { diameter: 9.4, thickness: 0.045, tessellation: 30 }, this.scene);
+    warning.parent = root;
+    warning.position.y = 0.1;
+    warning.rotation.x = Math.PI / 2;
+    warning.material = this.materials.hazardMarker;
+
     [-2.9, -1.2, 1.5, 3.2].forEach((offset, index) => {
       const crack = MeshBuilder.CreateBox(`hazard-crevasse-finger-${index}`, { width: 2.2, height: 0.05, depth: 0.16 }, this.scene);
       crack.parent = root;
@@ -714,6 +743,11 @@ export class GameScene {
     const boulder = MeshBuilder.CreateSphere('hazard-avalanche-core', { diameter: 2.4, segments: 12 }, this.scene);
     boulder.parent = root;
     boulder.material = this.materials.avalanche;
+
+    const warning = MeshBuilder.CreateTorus('hazard-avalanche-warning', { diameter: 5.8, thickness: 0.055, tessellation: 30 }, this.scene);
+    warning.parent = root;
+    warning.rotation.x = Math.PI / 2;
+    warning.material = this.materials.hazardMarker;
 
     for (let i = 0; i < 5; i += 1) {
       const plume = MeshBuilder.CreateSphere(`hazard-avalanche-plume-${i}`, { diameter: 1.1 + i * 0.18, segments: 8 }, this.scene);
@@ -739,6 +773,11 @@ export class GameScene {
       gust.material = this.materials.blizzardWind;
     }
 
+    const warning = MeshBuilder.CreateTorus('hazard-blizzard-warning', { diameter: 7.8, thickness: 0.045, tessellation: 32 }, this.scene);
+    warning.parent = root;
+    warning.rotation.x = Math.PI / 2;
+    warning.material = this.materials.hazardMarker;
+
     return root;
   }
 
@@ -746,6 +785,7 @@ export class GameScene {
     const mesh = MeshBuilder.CreateTorus('hazard-spirit', { diameter: 3.2, thickness: 0.08 }, this.scene);
     mesh.material = this.materials.spirit;
     mesh.position.set(x, this.terrainHeightAt(x, z) + 1.3, z);
+    mesh.scaling.setAll(1.25);
     mesh.metadata = { type: 'spirit', routeOffset, speed: 0.7 + Math.random() * 0.8, phase: Math.random() * 6 };
     return mesh;
   }
