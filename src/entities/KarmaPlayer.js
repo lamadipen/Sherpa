@@ -131,7 +131,7 @@ export class KarmaPlayer {
     this.root.position.set(0, 0.7, -82);
   }
 
-  update(input, delta, level) {
+  update(input, delta, level, movementContext = {}) {
     const move = new Vector3(0, 0, 0);
     if (input.forward) move.z += 1;
     if (input.back) move.z -= 0.45;
@@ -141,10 +141,21 @@ export class KarmaPlayer {
     if (move.lengthSquared() > 0) {
       move.normalize();
       const pace = input.rest ? 0.28 : 1;
-      const gradePenalty = 1 - Math.min(0.32, Math.max(0, this.root.position.z + 70) / level.routeLength * 0.32);
-      this.root.position.addInPlace(move.scale(this.speed * pace * gradePenalty * delta));
+      const altitudePenalty = 1 - Math.min(0.22, Math.max(0, this.root.position.z + 70) / level.routeLength * 0.22);
+      const uphillPenalty = move.z > 0 ? 1 - Math.min(0.48, Math.max(0, movementContext.forwardSlope || 0) * 1.28) : 1;
+      const traversePenalty = 1 - Math.min(0.18, Math.abs(movementContext.sideSlope || 0) * 0.34);
+      const icePenalty = 1 - Math.min(0.18, movementContext.icy || 0);
+      const speedScale = altitudePenalty * uphillPenalty * traversePenalty * icePenalty;
+      this.root.position.addInPlace(move.scale(this.speed * pace * speedScale * delta));
       this.root.position.x = Math.max(-this.lateralLimit, Math.min(this.lateralLimit, this.root.position.x));
       this.root.position.z = Math.max(-88, Math.min(level.routeLength - 88, this.root.position.z));
+    }
+
+    if (!input.rest && movementContext.icy > 0.15) {
+      const drift = Math.sign(movementContext.sideSlope || Math.sin(this.root.position.z * 0.13)) * movementContext.icy * (0.65 + Math.abs(movementContext.sideSlope || 0)) * delta;
+      const correction = (input.left ? -0.55 : 0) + (input.right ? 0.55 : 0);
+      this.root.position.x += drift + correction * movementContext.icy * delta;
+      this.root.position.x = Math.max(-this.lateralLimit, Math.min(this.lateralLimit, this.root.position.x));
     }
 
     this._stepTime += delta * (move.lengthSquared() > 0 ? 8 : 2);

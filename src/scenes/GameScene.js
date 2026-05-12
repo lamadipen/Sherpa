@@ -202,6 +202,30 @@ export class GameScene {
     return climb + ridgeRise + routeRoll + rockNoise * (0.18 + roughness * 1.05);
   }
 
+  movementContextAt(position) {
+    const sample = 1.8;
+    const here = this.terrainHeightAt(position.x, position.z);
+    const ahead = this.terrainHeightAt(position.x, position.z + sample);
+    const behind = this.terrainHeightAt(position.x, position.z - sample);
+    const left = this.terrainHeightAt(position.x - sample, position.z);
+    const right = this.terrainHeightAt(position.x + sample, position.z);
+    const progress = this.routeProgressAt(position.z);
+    const routeCenter = this.routeCenterAt(position.z);
+    const cross = position.x - routeCenter;
+    const forwardSlope = (ahead - behind) / (sample * 2);
+    const sideSlope = (right - left) / (sample * 2);
+    const icy = Math.max(0, Math.sin(progress * Math.PI * 5.6 + this.level.difficulty) - 0.24);
+    return {
+      forwardSlope,
+      sideSlope,
+      steepness: Math.min(1, Math.abs(forwardSlope) / 0.36),
+      icy,
+      routeCenter,
+      cross,
+      height: here
+    };
+  }
+
   bindInput() {
     const set = (key, value) => {
       const code = key.toLowerCase();
@@ -562,7 +586,8 @@ export class GameScene {
     const delta = this.engine.getDeltaTime() / 1000;
     if (this.state !== 'playing') return;
     const level = this.level;
-    this.player.update(this.input, delta, level);
+    const movementContext = this.movementContextAt(this.player.root.position);
+    this.player.update(this.input, delta, level, movementContext);
     const routeCenter = this.routeCenterAt(this.player.root.position.z);
     this.player.root.position.x = Math.max(routeCenter - 12, Math.min(routeCenter + 12, this.player.root.position.x));
     this.player.root.position.y = this.routeHeightAt(this.player.root.position.z, this.player.root.position.x) + 0.7;
@@ -570,9 +595,15 @@ export class GameScene {
     const isMoving = this.input.forward || this.input.left || this.input.right || this.input.back;
     const altitudeFactor = Math.max(0.25, (this.player.root.position.z + 88) / level.routeLength);
     this.metrics.oxygen -= delta * level.oxygenDrain * (0.28 + altitudeFactor);
-    this.metrics.stamina += delta * (this.input.rest ? 12 : isMoving ? -8 * level.staminaDrain : 2.4);
+    const slopeCost = 1 + movementContext.steepness * 0.85 + movementContext.icy * 0.28;
+    this.metrics.stamina += delta * (this.input.rest ? 12 : isMoving ? -8 * level.staminaDrain * slopeCost : 2.4);
     this.metrics.stamina = Math.max(0, Math.min(100, this.metrics.stamina));
     this.metrics.morale -= delta * (this.metrics.oxygen < 35 ? 1.2 : 0.12);
+    if (isMoving && movementContext.steepness > 0.62 && !this.metrics.message) {
+      this.metrics.message = 'Steep grade. Short steps save stamina.';
+    } else if (isMoving && movementContext.icy > 0.52 && !this.metrics.message) {
+      this.metrics.message = 'Blue ice. Hold the rope against the side drift.';
+    }
 
     this.updateHazards(delta);
     this.updateCamera(delta);
