@@ -54,7 +54,7 @@ export class GameScene {
   }
 
   setupScene() {
-    this.scene.clearColor = Color4.FromHexString('#dff2ffcc');
+    this.scene.clearColor = Color4.FromHexString('#b9ddf4ff');
     this.camera = new ArcRotateCamera('camera', Math.PI / 2, 1.1, 30, new Vector3(0, 3, -70), this.scene);
     this.camera.attachControl(this.canvas, true);
     this.camera.lowerRadiusLimit = 16;
@@ -62,8 +62,8 @@ export class GameScene {
     this.camera.wheelDeltaPercentage = 0.02;
     this.camera.maxZ = 1200;
     this.scene.fogMode = Scene.FOGMODE_EXP2;
-    this.scene.fogDensity = 0.0018;
-    this.scene.fogColor = Color3.FromHexString('#dcecf7');
+    this.scene.fogDensity = 0.0011;
+    this.scene.fogColor = Color3.FromHexString('#b9ddf4');
 
     const hemi = new HemisphericLight('hemi', new Vector3(0, 1, 0), this.scene);
     hemi.intensity = 0.92;
@@ -81,10 +81,14 @@ export class GameScene {
 
   createMaterials() {
     this.materials = {
-      snow: this.mat('snow', '#f6fbff'),
-      ridge: this.mat('ridge', '#bed0de'),
-      farRidge: this.mat('farRidge', '#9cafbc'),
-      farSnow: this.mat('farSnow', '#edf6fb'),
+      snow: this.mat('snow', '#e7eef2'),
+      pathSnow: this.mat('pathSnow', '#f8fbff'),
+      ridge: this.mat('ridge', '#8fa1ad'),
+      farRidge: this.mat('farRidge', '#647987'),
+      farSnow: this.mat('farSnow', '#f4fbff'),
+      rock: this.mat('rock', '#4c5a61'),
+      shadowRock: this.mat('shadowRock', '#334149'),
+      horizonRock: this.mat('horizonRock', '#2f4654'),
       ice: this.mat('ice', '#73c7df', 0.58),
       hazard: this.mat('hazard', '#101927'),
       avalanche: this.mat('avalanche', '#ffffff'),
@@ -97,6 +101,8 @@ export class GameScene {
     const material = new StandardMaterial(name, this.scene);
     material.diffuseColor = Color3.FromHexString(hex);
     material.specularColor = Color3.FromHexString('#18202a');
+    material.emissiveColor = Color3.FromHexString(hex).scale(0.06);
+    material.backFaceCulling = false;
     material.alpha = alpha;
     return material;
   }
@@ -252,6 +258,7 @@ export class GameScene {
     summit.rotation.y = Math.PI / 4;
     summit.material = this.materials.ridge;
     this.buildHorizonPeaks();
+    this.buildSurroundingMountains();
 
     const checkpointZ = -82 + level.routeLength * 0.48;
     this.cloneAssetOnRoute('tent_detailedOpen.glb', 'basecamp-tent', this.routeCenterAt(-84) - 8, -84, 1.5, 0.5, 0.4);
@@ -305,7 +312,7 @@ export class GameScene {
       marker.position.set(center, this.terrainHeightAt(center, z) + 0.05, z);
       marker.scaling.x = 1.7;
       marker.rotation.y = Math.sin(this.routeProgressAt(z) * Math.PI * 5.4) * 0.7;
-      marker.material = i % 3 === 0 ? this.materials.ice : this.materials.snow;
+      marker.material = i % 3 === 0 ? this.materials.ice : this.materials.pathSnow;
     }
   }
 
@@ -313,6 +320,36 @@ export class GameScene {
     const level = this.level;
     const summitZ = level.routeLength - 82;
     const farZ = summitZ + 68;
+    const sky = MeshBuilder.CreatePlane('route-sky-horizon', { width: 360, height: 130 }, this.scene);
+    sky.position.set(0, 58, farZ + 42);
+    const skyMat = new StandardMaterial('skyHorizon', this.scene);
+    skyMat.diffuseColor = Color3.FromHexString('#9ed0ef');
+    skyMat.emissiveColor = Color3.FromHexString('#9ed0ef');
+    skyMat.specularColor = Color3.Black();
+    skyMat.disableLighting = true;
+    skyMat.backFaceCulling = false;
+    sky.material = skyMat;
+
+    const silhouetteSpecs = [
+      { x: -44, z: 46, y: 32, size: 34, tilt: -0.18 },
+      { x: 36, z: 58, y: 36, size: 40, tilt: 0.14 },
+      { x: -58, z: 102, y: 45, size: 46, tilt: 0.08 },
+      { x: 54, z: 118, y: 48, size: 50, tilt: -0.1 },
+      { x: 0, z: farZ - 22, y: 66, size: 64, tilt: 0.03 }
+    ];
+
+    silhouetteSpecs.forEach((spec, index) => {
+      const peak = MeshBuilder.CreateDisc(`route-horizon-silhouette-${index}`, { radius: spec.size, tessellation: 3 }, this.scene);
+      peak.position.set(spec.x, spec.y, spec.z);
+      peak.rotation.z = Math.PI / 6 + spec.tilt;
+      peak.material = this.materials.horizonRock;
+
+      const cap = MeshBuilder.CreateDisc(`route-horizon-silhouette-cap-${index}`, { radius: spec.size * 0.34, tessellation: 3 }, this.scene);
+      cap.position.set(spec.x, spec.y + spec.size * 0.42, spec.z - 0.12);
+      cap.rotation.z = peak.rotation.z;
+      cap.material = this.materials.farSnow;
+    });
+
     const peakSpecs = [
       { x: 0, z: farZ, height: 76, width: 54, rotation: 0.18, main: true },
       { x: -42, z: farZ - 18, height: 48, width: 40, rotation: -0.28 },
@@ -333,7 +370,7 @@ export class GameScene {
       }, this.scene);
       peak.position.set(spec.x, baseY + spec.height / 2, spec.z);
       peak.rotation.y = Math.PI / 4 + spec.rotation;
-      peak.material = spec.main ? this.materials.ridge : this.materials.farRidge;
+      peak.material = spec.main ? this.materials.rock : this.materials.farRidge;
 
       const cap = MeshBuilder.CreateCylinder(`route-horizon-snowcap-${index}`, {
         height: spec.height * 0.36,
@@ -343,6 +380,43 @@ export class GameScene {
       }, this.scene);
       cap.position.set(spec.x, baseY + spec.height * 0.82, spec.z);
       cap.rotation.y = peak.rotation.y;
+      cap.material = this.materials.farSnow;
+    });
+  }
+
+  buildSurroundingMountains() {
+    const level = this.level;
+    const sideSpecs = [];
+    for (let i = 0; i < 9; i += 1) {
+      const z = -64 + i * (level.routeLength / 7.5);
+      sideSpecs.push(
+        { x: -38 - Math.sin(i) * 9, z, height: 40 + (i % 3) * 10, width: 34 + (i % 4) * 8, side: -1 },
+        { x: 38 + Math.cos(i * 0.7) * 9, z: z + 10, height: 42 + (i % 4) * 9, width: 36 + (i % 3) * 9, side: 1 }
+      );
+    }
+
+    sideSpecs.forEach((spec, index) => {
+      const baseY = this.terrainHeightAt(spec.x, spec.z) - 1.5;
+      const ridge = MeshBuilder.CreateCylinder(`route-side-mountain-${index}`, {
+        height: spec.height,
+        diameterTop: 0,
+        diameterBottom: spec.width,
+        tessellation: 4
+      }, this.scene);
+      ridge.position.set(spec.x, baseY + spec.height / 2, spec.z);
+      ridge.rotation.y = Math.PI / 4 + spec.side * 0.28;
+      ridge.scaling.z = 1.45;
+      ridge.material = index % 2 === 0 ? this.materials.rock : this.materials.shadowRock;
+
+      const cap = MeshBuilder.CreateCylinder(`route-side-snowcap-${index}`, {
+        height: spec.height * 0.3,
+        diameterTop: 0,
+        diameterBottom: spec.width * 0.35,
+        tessellation: 4
+      }, this.scene);
+      cap.position.set(spec.x, baseY + spec.height * 0.86, spec.z);
+      cap.rotation.y = ridge.rotation.y;
+      cap.scaling.z = 1.25;
       cap.material = this.materials.farSnow;
     });
   }
