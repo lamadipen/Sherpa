@@ -1,0 +1,160 @@
+import {
+  Color3,
+  MeshBuilder,
+  StandardMaterial,
+  TransformNode,
+  Vector3
+} from '@babylonjs/core';
+
+export class KarmaPlayer {
+  constructor(scene) {
+    this.scene = scene;
+    this.root = new TransformNode('karmaRoot', scene);
+    this.root.position = new Vector3(0, 0.7, -82);
+    this.speed = 12;
+    this.lateralLimit = 13;
+    this._stepTime = 0;
+    this.meshes = this.createStylizedSherpa();
+  }
+
+  createStylizedSherpa() {
+    const skin = this.material('karmaSkin', '#a96943');
+    const jacket = this.material('karmaJacket', '#d62839');
+    const pants = this.material('karmaPants', '#203047');
+    const pack = this.material('karmaPack', '#2f6f73');
+    const accent = this.material('karmaAccent', '#ffd166');
+    const scarf = this.material('karmaScarf', '#1f5fbf');
+    const wool = this.material('karmaWool', '#f0e6d2');
+    const boot = this.material('karmaBoot', '#201713');
+    const rope = this.material('karmaRope', '#d9b978');
+
+    const body = MeshBuilder.CreateCapsule('karmaBody', { height: 1.45, radius: 0.34 }, this.scene);
+    body.material = jacket;
+    body.parent = this.root;
+    body.position.y = 0.52;
+
+    const head = MeshBuilder.CreateSphere('karmaHead', { diameter: 0.45, segments: 16 }, this.scene);
+    head.material = skin;
+    head.parent = this.root;
+    head.position.y = 1.45;
+
+    const hat = MeshBuilder.CreateCylinder('karmaTopi', { height: 0.22, diameterTop: 0.34, diameterBottom: 0.46, tessellation: 6 }, this.scene);
+    hat.material = accent;
+    hat.parent = this.root;
+    hat.position.y = 1.76;
+    hat.rotation.z = 0.08;
+
+    const hatBand = MeshBuilder.CreateCylinder('karmaTopiBand', { height: 0.06, diameterTop: 0.37, diameterBottom: 0.47, tessellation: 6 }, this.scene);
+    hatBand.material = scarf;
+    hatBand.parent = this.root;
+    hatBand.position.y = 1.67;
+    hatBand.rotation.z = 0.08;
+
+    const scarfWrap = MeshBuilder.CreateTorus('karmaScarfWrap', { diameter: 0.66, thickness: 0.055, tessellation: 18 }, this.scene);
+    scarfWrap.material = scarf;
+    scarfWrap.parent = this.root;
+    scarfWrap.position.y = 1.17;
+    scarfWrap.rotation.x = Math.PI / 2;
+
+    const scarfTail = MeshBuilder.CreateBox('karmaScarfTail', { width: 0.14, height: 0.52, depth: 0.07 }, this.scene);
+    scarfTail.material = scarf;
+    scarfTail.parent = this.root;
+    scarfTail.position.set(0.27, 0.92, -0.28);
+    scarfTail.rotation.z = -0.16;
+
+    const backpack = MeshBuilder.CreateBox('karmaBackpack', { width: 0.68, height: 1.02, depth: 0.32 }, this.scene);
+    backpack.material = pack;
+    backpack.parent = this.root;
+    backpack.position.set(0, 0.67, -0.35);
+
+    const bedroll = MeshBuilder.CreateCylinder('karmaBedroll', { height: 0.78, diameter: 0.22, tessellation: 12 }, this.scene);
+    bedroll.material = wool;
+    bedroll.parent = this.root;
+    bedroll.position.set(0, 1.22, -0.48);
+    bedroll.rotation.z = Math.PI / 2;
+
+    const ropeCoil = MeshBuilder.CreateTorus('karmaRopeCoil', { diameter: 0.48, thickness: 0.045, tessellation: 20 }, this.scene);
+    ropeCoil.material = rope;
+    ropeCoil.parent = this.root;
+    ropeCoil.position.set(-0.39, 0.74, -0.39);
+    ropeCoil.rotation.y = Math.PI / 2;
+
+    const leftLeg = MeshBuilder.CreateCapsule('karmaLeftLeg', { height: 0.9, radius: 0.12 }, this.scene);
+    leftLeg.material = pants;
+    leftLeg.parent = this.root;
+    leftLeg.position.set(-0.16, -0.35, 0);
+
+    const rightLeg = leftLeg.clone('karmaRightLeg');
+    rightLeg.position.x = 0.16;
+
+    const leftBoot = MeshBuilder.CreateBox('karmaLeftBoot', { width: 0.22, height: 0.16, depth: 0.36 }, this.scene);
+    leftBoot.material = boot;
+    leftBoot.parent = this.root;
+    leftBoot.position.set(-0.16, -0.82, 0.06);
+
+    const rightBoot = leftBoot.clone('karmaRightBoot');
+    rightBoot.position.x = 0.16;
+
+    const leftArm = MeshBuilder.CreateCapsule('karmaLeftArm', { height: 0.82, radius: 0.08 }, this.scene);
+    leftArm.material = jacket;
+    leftArm.parent = this.root;
+    leftArm.position.set(-0.42, 0.63, 0);
+    leftArm.rotation.z = -0.24;
+
+    const rightArm = leftArm.clone('karmaRightArm');
+    rightArm.position.x = 0.42;
+    rightArm.rotation.z = 0.24;
+
+    const chestStrap = MeshBuilder.CreateBox('karmaChestStrap', { width: 0.12, height: 1.05, depth: 0.05 }, this.scene);
+    chestStrap.material = rope;
+    chestStrap.parent = this.root;
+    chestStrap.position.set(-0.08, 0.66, 0.34);
+    chestStrap.rotation.z = -0.42;
+
+    const pole = MeshBuilder.CreateCylinder('karmaIceAxe', { height: 1.35, diameter: 0.035 }, this.scene);
+    pole.material = accent;
+    pole.parent = this.root;
+    pole.position.set(0.48, 0.35, 0.1);
+    pole.rotation.z = 0.28;
+
+    return { body, leftLeg, rightLeg, leftBoot, rightBoot, leftArm, rightArm, pole };
+  }
+
+  material(name, hex) {
+    const mat = new StandardMaterial(name, this.scene);
+    mat.diffuseColor = Color3.FromHexString(hex);
+    mat.specularColor = new Color3(0.08, 0.08, 0.08);
+    return mat;
+  }
+
+  reset() {
+    this.root.position.set(0, 0.7, -82);
+  }
+
+  update(input, delta, level) {
+    const move = new Vector3(0, 0, 0);
+    if (input.forward) move.z += 1;
+    if (input.back) move.z -= 0.45;
+    if (input.left) move.x -= 1;
+    if (input.right) move.x += 1;
+
+    if (move.lengthSquared() > 0) {
+      move.normalize();
+      const pace = input.rest ? 0.28 : 1;
+      const gradePenalty = 1 - Math.min(0.32, Math.max(0, this.root.position.z + 70) / level.routeLength * 0.32);
+      this.root.position.addInPlace(move.scale(this.speed * pace * gradePenalty * delta));
+      this.root.position.x = Math.max(-this.lateralLimit, Math.min(this.lateralLimit, this.root.position.x));
+      this.root.position.z = Math.max(-88, Math.min(level.routeLength - 88, this.root.position.z));
+    }
+
+    this._stepTime += delta * (move.lengthSquared() > 0 ? 8 : 2);
+    this.meshes.leftLeg.rotation.x = Math.sin(this._stepTime) * 0.3;
+    this.meshes.rightLeg.rotation.x = Math.sin(this._stepTime + Math.PI) * 0.3;
+    this.meshes.leftBoot.rotation.x = Math.sin(this._stepTime) * 0.18;
+    this.meshes.rightBoot.rotation.x = Math.sin(this._stepTime + Math.PI) * 0.18;
+    this.meshes.leftArm.rotation.x = Math.sin(this._stepTime + Math.PI) * 0.14;
+    this.meshes.rightArm.rotation.x = Math.sin(this._stepTime) * 0.14;
+    this.meshes.pole.rotation.x = Math.sin(this._stepTime) * 0.12;
+    this.root.rotation.y = -move.x * 0.12;
+  }
+}
