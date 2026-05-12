@@ -254,9 +254,9 @@ export class GameScene {
   campDefinitions() {
     return [
       { id: 'base', name: 'Base Camp', progress: 0, used: true },
-      { id: 'camp1', name: 'Camp I', progress: 0.28, oxygen: 18, stamina: 28, morale: 8, used: false },
-      { id: 'camp2', name: 'Camp II', progress: 0.56, oxygen: 24, stamina: 32, morale: 12, used: false },
-      { id: 'summit-push', name: 'Summit Push', progress: 0.78, oxygen: 16, stamina: 24, morale: 18, used: false }
+      { id: 'camp1', name: 'Camp I', progress: 0.28, oxygen: 20, stamina: 34, morale: 10, used: false },
+      { id: 'camp2', name: 'Camp II', progress: 0.56, oxygen: 28, stamina: 38, morale: 14, used: false },
+      { id: 'summit-push', name: 'Summit Push', progress: 0.78, oxygen: 20, stamina: 30, morale: 18, used: false }
     ];
   }
 
@@ -663,9 +663,10 @@ export class GameScene {
     this.metrics.time += delta;
     const isMoving = this.input.forward || this.input.left || this.input.right || this.input.back;
     const altitudeFactor = Math.max(0.25, (this.player.root.position.z + 88) / level.routeLength);
-    this.metrics.oxygen -= delta * level.oxygenDrain * (0.28 + altitudeFactor);
+    const summitPressure = Math.max(0, altitudeFactor - 0.72) * 0.55;
+    this.metrics.oxygen -= delta * level.oxygenDrain * (0.2 + altitudeFactor * 0.72 + summitPressure);
     const slopeCost = 1 + movementContext.steepness * 0.85 + movementContext.icy * 0.28;
-    this.metrics.stamina += delta * (this.input.rest ? 12 : isMoving ? -8 * level.staminaDrain * slopeCost : 2.4);
+    this.metrics.stamina += delta * (this.input.rest ? 15 : isMoving ? -6.6 * level.staminaDrain * slopeCost : 3.1);
     this.metrics.stamina = Math.max(0, Math.min(100, this.metrics.stamina));
     this.metrics.morale -= delta * (this.metrics.oxygen < 35 ? 1.2 : 0.12);
     if (isMoving && movementContext.steepness > 0.62 && !this.metrics.message) {
@@ -689,6 +690,12 @@ export class GameScene {
 
   updateHazards(delta) {
     let blizzardPressure = 0;
+    const hazardDamage = {
+      crevasse: { radius: 3.2, stamina: 15, oxygen: 3.5, morale: 6 },
+      avalanche: { radius: 3.4, stamina: 18, oxygen: 5.5, morale: 9 },
+      blizzard: { radius: 4.2, stamina: 8, oxygen: 4.5, morale: 5 },
+      spirit: { radius: 3.1, stamina: 7, oxygen: 2.5, morale: 8 }
+    };
     this.hazards.forEach((hazard) => {
       const data = hazard.metadata;
       if (data.type === 'avalanche') {
@@ -719,10 +726,12 @@ export class GameScene {
       if (data.type === 'blizzard') {
         blizzardPressure = Math.max(blizzardPressure, Math.max(0, 1 - distance / 18));
       }
-      if (distance < (data.type === 'crevasse' ? 3.6 : 2.8)) {
-        this.metrics.stamina -= 22 * delta;
-        this.metrics.oxygen -= 8 * delta;
-        this.metrics.morale -= 10 * delta;
+      const damage = hazardDamage[data.type] || hazardDamage.spirit;
+      if (distance < damage.radius) {
+        const pressure = 1 - distance / damage.radius;
+        this.metrics.stamina -= damage.stamina * pressure * delta;
+        this.metrics.oxygen -= damage.oxygen * pressure * delta;
+        this.metrics.morale -= damage.morale * pressure * delta;
         this.metrics.message = data.type === 'spirit'
           ? 'The mountain spirit demands patience.'
           : data.type === 'blizzard'
@@ -740,8 +749,8 @@ export class GameScene {
       this.snow.emitRate += (snowTarget - this.snow.emitRate) * Math.min(1, delta * 3);
     }
     if (blizzardPressure > 0.25) {
-      this.metrics.stamina -= delta * blizzardPressure * 4.5;
-      this.metrics.morale -= delta * blizzardPressure * 1.8;
+      this.metrics.stamina -= delta * blizzardPressure * 2.6;
+      this.metrics.morale -= delta * blizzardPressure * 1.2;
     }
     this.blizzardPressure = blizzardPressure;
   }
