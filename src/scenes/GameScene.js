@@ -19,6 +19,7 @@ import {
 } from '@babylonjs/core';
 import { HimalayanProps } from '../entities/HimalayanProps.js';
 import { KarmaPlayer } from '../entities/KarmaPlayer.js';
+import { GameAudio } from '../audio/GameAudio.js';
 
 const ASSET_ROOT = '/assets/vendor/kenney/nature-kit/Models/GLTF%20format/';
 const BASE_FOG_DENSITY = 0.0011;
@@ -43,6 +44,8 @@ export class GameScene {
     this.cameraBob = 0;
     this.cameraDanger = 0;
     this.summitTimer = 0;
+    this.blizzardPressure = 0;
+    this.audio = new GameAudio();
     this.lang = localStorage.getItem('sherpa.lang') || 'en';
     this.records = JSON.parse(localStorage.getItem('sherpa.records') || '{}');
   }
@@ -231,6 +234,7 @@ export class GameScene {
 
   bindInput() {
     const set = (key, value) => {
+      if (value) this.audio.unlock();
       const code = key.toLowerCase();
       if (code === 'w' || key === 'ArrowUp') this.input.forward = value;
       if (code === 's' || key === 'ArrowDown') this.input.back = value;
@@ -257,6 +261,7 @@ export class GameScene {
   }
 
   async beginLevel(index) {
+    this.audio.unlock();
     this.levelIndex = index;
     this.level = this.levels[index];
     this.camps = this.campDefinitions();
@@ -266,6 +271,7 @@ export class GameScene {
     this.player.root.position.x = this.routeCenterAt(this.player.root.position.z);
     this.scene.clearColor = Color4.FromHexString(`${this.level.sky}dd`);
     this.scene.fogDensity = BASE_FOG_DENSITY;
+    this.blizzardPressure = 0;
     if (this.snow) this.snow.emitRate = BASE_SNOW_RATE;
     this.clearLevel();
     this.buildMountain();
@@ -669,6 +675,13 @@ export class GameScene {
     }
 
     this.updateHazards(delta);
+    const hazardDistance = this.nearestHazardDistance();
+    this.audio.update({
+      isMoving,
+      hazardPressure: Math.max(0, 1 - hazardDistance / 16),
+      blizzardPressure: this.blizzardPressure,
+      progress: altitudeFactor
+    });
     this.updateCamera(delta, isMoving);
     this.checkProgress();
     this.paintHud();
@@ -730,6 +743,7 @@ export class GameScene {
       this.metrics.stamina -= delta * blizzardPressure * 4.5;
       this.metrics.morale -= delta * blizzardPressure * 1.8;
     }
+    this.blizzardPressure = blizzardPressure;
   }
 
   nearestHazardInfo() {
@@ -825,6 +839,7 @@ export class GameScene {
     this.metrics.morale = Math.min(100, this.metrics.morale + camp.morale);
     this.metrics.campReady = false;
     camp.used = true;
+    this.audio.camp();
     this.metrics.message = `${camp.name}: oxygen, tea, and a slower heartbeat.`;
   }
 
@@ -833,6 +848,7 @@ export class GameScene {
     this.state = success ? 'summit' : 'failed';
     if (success) {
       this.summitTimer = 0;
+      this.audio.summit();
       const best = this.records[this.level.id];
       if (!best || this.metrics.time < best) {
         this.records[this.level.id] = this.metrics.time;
@@ -841,6 +857,7 @@ export class GameScene {
       this.metrics.message = 'Summit reached. Breathe, look, remember.';
       return;
     }
+    this.audio.fail();
     this.renderResult(success);
   }
 
