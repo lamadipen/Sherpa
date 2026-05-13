@@ -14,6 +14,12 @@ export class KarmaPlayer {
     this.speed = 12;
     this.lateralLimit = 13;
     this._stepTime = 0;
+    this.jumpTimer = 0;
+    this.jumpDuration = 0.58;
+    this.dodgeTimer = 0;
+    this.toolTimer = 0;
+    this.actionHeight = 0;
+    this.actions = { jumping: false, crouching: false, dodging: false, usingTool: false };
     this.meshes = this.createStylizedSherpa();
   }
 
@@ -137,9 +143,22 @@ export class KarmaPlayer {
 
   reset() {
     this.root.position.set(0, 0.7, -82);
+    this.root.scaling.setAll(1);
+    this.jumpTimer = 0;
+    this.dodgeTimer = 0;
+    this.toolTimer = 0;
+    this.actionHeight = 0;
+    this.actions = { jumping: false, crouching: false, dodging: false, usingTool: false };
   }
 
   update(input, delta, level, movementContext = {}) {
+    if (input.jumpPressed && this.jumpTimer <= 0 && !input.rest) this.jumpTimer = this.jumpDuration;
+    if (input.dodgePressed && this.dodgeTimer <= 0 && !input.rest) this.dodgeTimer = 0.26;
+    if (input.toolPressed) this.toolTimer = 0.35;
+    input.jumpPressed = false;
+    input.dodgePressed = false;
+    input.toolPressed = false;
+
     const move = new Vector3(0, 0, 0);
     if (input.forward) move.z += 1;
     if (input.back) move.z -= 0.45;
@@ -148,16 +167,40 @@ export class KarmaPlayer {
 
     if (move.lengthSquared() > 0) {
       move.normalize();
-      const pace = input.rest ? 0.28 : 1;
+      const pace = input.rest ? 0.28 : input.crouch ? 0.56 : 1;
       const altitudePenalty = 1 - Math.min(0.22, Math.max(0, this.root.position.z + 70) / level.routeLength * 0.22);
       const uphillPenalty = move.z > 0 ? 1 - Math.min(0.48, Math.max(0, movementContext.forwardSlope || 0) * 1.28) : 1;
       const traversePenalty = 1 - Math.min(0.18, Math.abs(movementContext.sideSlope || 0) * 0.34);
       const icePenalty = 1 - Math.min(0.18, movementContext.icy || 0);
-      const speedScale = altitudePenalty * uphillPenalty * traversePenalty * icePenalty;
+      const jumpPenalty = this.jumpTimer > 0 ? 0.78 : 1;
+      const speedScale = altitudePenalty * uphillPenalty * traversePenalty * icePenalty * jumpPenalty;
       this.root.position.addInPlace(move.scale(this.speed * pace * speedScale * delta));
       this.root.position.x = Math.max(-this.lateralLimit, Math.min(this.lateralLimit, this.root.position.x));
       this.root.position.z = Math.max(-88, Math.min(level.routeLength - 88, this.root.position.z));
     }
+
+    if (this.dodgeTimer > 0) {
+      const direction = input.left ? -1 : input.right ? 1 : Math.sign(movementContext.cross || 1);
+      this.root.position.x += direction * 20 * delta;
+      this.root.position.x = Math.max(-this.lateralLimit, Math.min(this.lateralLimit, this.root.position.x));
+      this.dodgeTimer = Math.max(0, this.dodgeTimer - delta);
+    }
+
+    if (this.jumpTimer > 0) {
+      const progress = 1 - this.jumpTimer / this.jumpDuration;
+      this.actionHeight = Math.sin(progress * Math.PI) * 2.2;
+      this.jumpTimer = Math.max(0, this.jumpTimer - delta);
+    } else {
+      this.actionHeight = 0;
+    }
+    this.toolTimer = Math.max(0, this.toolTimer - delta);
+    this.actions = {
+      jumping: this.actionHeight > 0.4,
+      crouching: input.crouch,
+      dodging: this.dodgeTimer > 0,
+      usingTool: this.toolTimer > 0
+    };
+    this.root.scaling.y += ((input.crouch ? 0.68 : 1) - this.root.scaling.y) * Math.min(1, delta * 12);
 
     if (!input.rest && movementContext.icy > 0.15) {
       const drift = Math.sign(movementContext.sideSlope || Math.sin(this.root.position.z * 0.13)) * movementContext.icy * (0.65 + Math.abs(movementContext.sideSlope || 0)) * delta;
@@ -173,8 +216,9 @@ export class KarmaPlayer {
     this.meshes.rightBoot.rotation.x = Math.sin(this._stepTime + Math.PI) * 0.18;
     this.meshes.leftArm.rotation.x = Math.sin(this._stepTime + Math.PI) * 0.14;
     this.meshes.rightArm.rotation.x = Math.sin(this._stepTime) * 0.14;
-    this.meshes.pole.rotation.x = Math.sin(this._stepTime) * 0.12;
+    this.meshes.pole.rotation.x = this.actions.usingTool ? -0.9 : Math.sin(this._stepTime) * 0.12;
+    this.meshes.pole.rotation.z = this.actions.usingTool ? 1.1 : 0.28;
     this.meshes.overheadMarker.rotation.z += delta * 1.8;
-    this.root.rotation.y = -move.x * 0.12;
+    this.root.rotation.y = move.z > 0 ? -move.x * 0.22 : -move.x * 0.12;
   }
 }

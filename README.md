@@ -59,10 +59,12 @@ npm run preview
 | Move backward | `S` or `ArrowDown` |
 | Move left | `A` or `ArrowLeft` |
 | Move right | `D` or `ArrowRight` |
-| Rest / conserve energy | `Space` |
+| Jump crevasses | `Space` |
+| Crouch through blizzards | `C` |
+| Dodge avalanches | `Shift` |
+| Throw rope to recover caches | `F` |
+| Rest / conserve energy | `R` |
 | Use checkpoint resupply | `E` |
-| Orbit camera | Mouse / trackpad |
-| Zoom camera | Mouse wheel / trackpad |
 
 ## Project Structure
 
@@ -87,7 +89,7 @@ npm run preview
 
 ## Gameplay Notes
 
-The goal is to guide Karma's team to the summit without exhausting oxygen, stamina, or morale. Moving quickly can improve summit times, but hazards and altitude make restraint important. Reaching the checkpoint unlocks one resupply with `E`.
+The goal is to guide Karma's team to the summit without exhausting oxygen, stamina, or morale. Moving quickly can improve summit times, but hazards and altitude make restraint important. Jump crevasses, crouch through whiteouts, dodge avalanche paths, and throw the rope toward side caches for extra supplies. Reaching the checkpoint unlocks one resupply with `E`.
 
 ## Assets
 

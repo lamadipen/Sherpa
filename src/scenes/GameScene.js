@@ -34,12 +34,25 @@ export class GameScene {
     this.levels = levels;
     this.engine = new Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true });
     this.scene = new Scene(this.engine);
-    this.input = { forward: false, back: false, left: false, right: false, rest: false };
+    this.input = {
+      forward: false,
+      back: false,
+      left: false,
+      right: false,
+      rest: false,
+      crouch: false,
+      jumpPressed: false,
+      dodgePressed: false,
+      toolPressed: false
+    };
     this.state = 'menu';
     this.levelIndex = 0;
     this.metrics = this.defaultMetrics();
     this.hazards = [];
     this.props = [];
+    this.tools = [];
+    this.toolLine = null;
+    this.toolLineTimer = 0;
     this.loadedAssets = new Map();
     this.cameraBob = 0;
     this.cameraDanger = 0;
@@ -110,7 +123,10 @@ export class GameScene {
       hazardMarker: this.mat('hazardMarker', '#ff4056'),
       blizzardWind: this.mat('blizzardWind', '#dff4ff', 0.34),
       spirit: this.mat('spirit', '#80ffe0', 0.45),
-      checkpoint: this.mat('checkpoint', '#ffcf5a')
+      checkpoint: this.mat('checkpoint', '#ffcf5a'),
+      tool: this.mat('toolPickup', '#2f6f73'),
+      toolMetal: this.mat('toolMetal', '#d7e6ec'),
+      toolGlow: this.mat('toolGlow', '#35f0c7', 0.5)
     };
   }
 
@@ -250,10 +266,17 @@ export class GameScene {
       if (code === 's' || key === 'ArrowDown') this.input.back = value;
       if (code === 'a' || key === 'ArrowLeft') this.input.left = value;
       if (code === 'd' || key === 'ArrowRight') this.input.right = value;
-      if (key === ' ') this.input.rest = value;
+      if (code === 'r') this.input.rest = value;
+      if (code === 'c') this.input.crouch = value;
       if (code === 'e' && value) this.useCheckpoint();
     };
-    window.addEventListener('keydown', (event) => set(event.key, true));
+    window.addEventListener('keydown', (event) => {
+      if ([' ', 'Shift'].includes(event.key)) event.preventDefault();
+      if (!event.repeat && event.key === ' ') this.input.jumpPressed = true;
+      if (!event.repeat && event.key === 'Shift') this.input.dodgePressed = true;
+      if (!event.repeat && event.key.toLowerCase() === 'f') this.input.toolPressed = true;
+      set(event.key, true);
+    });
     window.addEventListener('keyup', (event) => set(event.key, false));
   }
 
@@ -268,6 +291,7 @@ export class GameScene {
       campReady: false,
       campsUsed: 0,
       hazardHits: 0,
+      toolsCollected: 0,
       climberRisk: 0,
       message: '',
       messageTimer: 0
@@ -321,9 +345,13 @@ export class GameScene {
   }
 
   clearLevel() {
-    [...this.hazards, ...this.props].forEach((item) => item.dispose?.());
+    [...this.hazards, ...this.props, ...this.tools].forEach((item) => item.dispose?.());
+    this.toolLine?.dispose();
+    this.toolLine = null;
+    this.toolLineTimer = 0;
     this.hazards = [];
     this.props = [];
+    this.tools = [];
     this.scene.meshes.filter((mesh) => mesh.name.startsWith('route-') || mesh.name.startsWith('summit')).forEach((mesh) => mesh.dispose());
   }
 
@@ -362,6 +390,7 @@ export class GameScene {
     this.props.push(this.himalayanProps.createLodge('basecamp-lodge', this.routePosition(this.routeCenterAt(-88) - 14, -88, 0.2), { rotationY: -0.36 }));
     this.createExpeditionCamps();
     this.createEnvironmentIdentity();
+    this.createToolPickups();
     this.props.push(this.himalayanProps.createPrayerFlags('route-prayer-flags', this.routePosition(this.routeCenterAt(-65) - 11, -65, 2.4), this.routePosition(this.routeCenterAt(-58) + 10, -58, 2.9)));
     for (let i = 0; i < 24; i += 1) {
       const side = i % 2 === 0 ? -1 : 1;
@@ -477,6 +506,105 @@ export class GameScene {
       halo.rotation.x = Math.PI / 2;
       halo.material = this.materials.routeGlow;
     });
+  }
+
+  createToolPickups() {
+    const count = 7 + Math.min(3, this.level.difficulty);
+    for (let i = 0; i < count; i += 1) {
+      const progress = 0.14 + (i / count) * 0.72;
+      const z = -88 + this.level.routeLength * progress;
+      const side = i % 2 === 0 ? -1 : 1;
+      const x = this.routeCenterAt(z) + side * (11 + (i % 3) * 2.3);
+      const root = new TransformNode(`route-tool-cache-${i}`, this.scene);
+      root.position.set(x, this.terrainHeightAt(x, z) + 1.05, z);
+      root.metadata = {
+        type: i % 3 === 0 ? 'oxygen' : i % 3 === 1 ? 'tea' : 'hardware',
+        collected: false,
+        phase: i * 0.75
+      };
+
+      const ring = MeshBuilder.CreateTorus(`route-tool-cache-ring-${i}`, { diameter: 2.3, thickness: 0.045, tessellation: 28 }, this.scene);
+      ring.parent = root;
+      ring.position.y = -0.86;
+      ring.rotation.x = Math.PI / 2;
+      ring.material = this.materials.toolGlow;
+
+      const pack = MeshBuilder.CreateBox(`route-tool-cache-pack-${i}`, { width: 0.72, height: 0.5, depth: 0.54 }, this.scene);
+      pack.parent = root;
+      pack.material = this.materials.tool;
+
+      const handle = MeshBuilder.CreateCylinder(`route-tool-cache-handle-${i}`, { height: 0.92, diameter: 0.07, tessellation: 8 }, this.scene);
+      handle.parent = root;
+      handle.position.set(0.52, 0.18, 0);
+      handle.rotation.z = 0.7;
+      handle.material = this.materials.toolMetal;
+
+      const head = MeshBuilder.CreateBox(`route-tool-cache-head-${i}`, { width: 0.58, height: 0.14, depth: 0.16 }, this.scene);
+      head.parent = handle;
+      head.position.y = 0.44;
+      head.material = this.materials.toolMetal;
+
+      this.tools.push(root);
+    }
+  }
+
+  nearestToolInfo(maxDistance = 24) {
+    return this.tools.reduce((closest, tool) => {
+      if (tool.metadata?.collected) return closest;
+      const dz = tool.position.z - this.player.root.position.z;
+      const distance = Vector3.Distance(tool.position, this.player.root.position);
+      if (dz < -6 || distance > maxDistance || distance >= closest.distance) return closest;
+      return { tool, distance };
+    }, { tool: null, distance: Infinity });
+  }
+
+  updateTools(delta) {
+    this.tools.forEach((tool) => {
+      if (tool.metadata?.collected) return;
+      tool.rotation.y += delta * 1.2;
+      tool.position.y = this.terrainHeightAt(tool.position.x, tool.position.z) + 1.05 + Math.sin(this.metrics.time * 2 + tool.metadata.phase) * 0.16;
+      tool.getChildMeshes().forEach((mesh) => {
+        if (mesh.name.includes('ring')) mesh.scaling.setAll(1 + Math.sin(this.metrics.time * 3 + tool.metadata.phase) * 0.08);
+      });
+    });
+
+    if (this.toolLineTimer > 0) {
+      this.toolLineTimer = Math.max(0, this.toolLineTimer - delta);
+      if (this.toolLineTimer === 0) {
+        this.toolLine?.dispose();
+        this.toolLine = null;
+      }
+    }
+  }
+
+  throwToolLine() {
+    if (this.state !== 'playing') return;
+    const { tool, distance } = this.nearestToolInfo();
+    if (!tool) {
+      this.setMessage('No cache in rope range. Move closer, then throw.', 3);
+      return;
+    }
+
+    this.toolLine?.dispose();
+    const start = this.player.root.position.add(new Vector3(0, 1.25, 0));
+    const end = tool.position.add(new Vector3(0, 0.35, 0));
+    const mid = Vector3.Lerp(start, end, 0.5).add(new Vector3(0, 1.4, 0));
+    this.toolLine = MeshBuilder.CreateTube('route-tool-rope-line', {
+      path: [start, mid, end],
+      radius: 0.045,
+      tessellation: 8
+    }, this.scene);
+    this.toolLine.material = this.materials.rope;
+    this.toolLineTimer = 0.42;
+
+    tool.metadata.collected = true;
+    tool.setEnabled(false);
+    this.metrics.toolsCollected += 1;
+    this.metrics.oxygen = Math.min(100, this.metrics.oxygen + 7);
+    this.metrics.stamina = Math.min(100, this.metrics.stamina + 10);
+    this.metrics.morale = Math.min(100, this.metrics.morale + 4);
+    this.audio.camp();
+    this.setMessage(`Rope catch secured a cache ${Math.round(distance)}m away.`, 4);
   }
 
   createSummitCeremony(x, z) {
@@ -820,10 +948,19 @@ export class GameScene {
     }
     const level = this.level;
     const movementContext = this.movementContextAt(this.player.root.position);
+    const jumped = this.input.jumpPressed;
+    const dodged = this.input.dodgePressed;
+    const toolThrown = this.input.toolPressed;
     this.player.update(this.input, delta, level, movementContext);
+    if (jumped) this.metrics.stamina -= 4.5;
+    if (dodged) this.metrics.stamina -= 3.5;
+    if (toolThrown) {
+      this.metrics.stamina -= 5;
+      this.throwToolLine();
+    }
     const routeCenter = this.routeCenterAt(this.player.root.position.z);
     this.player.root.position.x = Math.max(routeCenter - 12, Math.min(routeCenter + 12, this.player.root.position.x));
-    this.player.root.position.y = this.routeHeightAt(this.player.root.position.z, this.player.root.position.x) + 0.7;
+    this.player.root.position.y = this.routeHeightAt(this.player.root.position.z, this.player.root.position.x) + 0.7 + this.player.actionHeight;
     this.metrics.time += delta;
     const isMoving = this.input.forward || this.input.left || this.input.right || this.input.back;
     const altitudeFactor = Math.max(0.25, (this.player.root.position.z + 88) / level.routeLength);
@@ -840,6 +977,7 @@ export class GameScene {
     }
 
     this.updateHazards(delta);
+    this.updateTools(delta);
     const hazardDistance = this.nearestHazardDistance();
     this.audio.update({
       isMoving,
@@ -892,7 +1030,21 @@ export class GameScene {
       }
       const damage = hazardDamage[data.type] || hazardDamage.spirit;
       if (distance < damage.radius) {
-        const pressure = 1 - distance / damage.radius;
+        let pressure = 1 - distance / damage.radius;
+        const actions = this.player.actions;
+        const avoided =
+          (data.type === 'crevasse' && actions.jumping) ||
+          (data.type === 'avalanche' && actions.dodging);
+        if (data.type === 'blizzard' && actions.crouching) pressure *= 0.28;
+
+        if (avoided) {
+          data.touching = false;
+          if (!this.metrics.message) {
+            this.setMessage(data.type === 'crevasse' ? 'Clean jump over the crevasse.' : 'Quick dodge out of the avalanche path.', 2.5);
+          }
+          return;
+        }
+
         if (!data.touching) {
           data.touching = true;
           this.metrics.hazardHits += 1;
@@ -909,10 +1061,10 @@ export class GameScene {
           this.setMessage(data.type === 'spirit'
           ? 'The mountain spirit demands patience.'
           : data.type === 'blizzard'
-            ? 'Whiteout. Follow the rope and slow down.'
+            ? actions.crouching ? 'Crouch low. The whiteout passes over the rope team.' : 'Whiteout. Crouch or follow the rope and slow down.'
             : data.type === 'avalanche'
-              ? 'Avalanche crossing. Move out of the slide path.'
-              : 'Crevasse underfoot. Keep weight on the rope.', 4);
+              ? 'Avalanche crossing. Dodge out of the slide path.'
+              : 'Crevasse underfoot. Jump the crack or keep weight on the rope.', 4);
         }
       } else {
         data.touching = false;
@@ -926,8 +1078,9 @@ export class GameScene {
       this.snow.emitRate += (snowTarget - this.snow.emitRate) * Math.min(1, delta * 3);
     }
     if (blizzardPressure > 0.25) {
-      this.metrics.stamina -= delta * blizzardPressure * 2.6;
-      this.metrics.morale -= delta * blizzardPressure * 1.2;
+      const crouchShield = this.player.actions.crouching ? 0.38 : 1;
+      this.metrics.stamina -= delta * blizzardPressure * 2.6 * crouchShield;
+      this.metrics.morale -= delta * blizzardPressure * 1.2 * crouchShield;
     }
     this.blizzardPressure = blizzardPressure;
   }
@@ -1067,15 +1220,18 @@ export class GameScene {
       return { kind: 'camp', title: camp?.name || 'Camp Reached', body: 'Press E to resupply oxygen, stamina, and morale.' };
     }
     if (this.metrics.oxygen < 24) return { kind: 'danger', title: 'Low Oxygen', body: 'Slow down and look for the next camp.' };
-    if (this.metrics.stamina < 20) return { kind: 'warning', title: 'Low Stamina', body: 'Hold Space to rest before pushing higher.' };
+    if (this.metrics.stamina < 20) return { kind: 'warning', title: 'Low Stamina', body: 'Hold R to rest before pushing higher.' };
     if (this.metrics.morale < 26) return { kind: 'warning', title: 'Morale Falling', body: 'Avoid hazards and conserve the team.' };
+
+    const cache = this.nearestToolInfo(18);
+    if (cache.tool) return { kind: 'camp', title: 'Cache In Range', body: 'Press F to throw the rope and recover supplies.' };
 
     const hazard = this.nearestHazardInfo();
     if (hazard.distance < 9.5) {
       const labels = {
-        avalanche: ['Avalanche Path', 'Move out of the slide path.'],
-        blizzard: ['Whiteout Zone', 'Follow the rope and slow down.'],
-        crevasse: ['Crevasse Ahead', 'Cross carefully and stay near the rope.'],
+        avalanche: ['Avalanche Path', 'Dodge out of the slide path with Shift.'],
+        blizzard: ['Whiteout Zone', 'Crouch with C and follow the rope.'],
+        crevasse: ['Crevasse Ahead', 'Jump with Space or stay near the rope.'],
         spirit: ['Mountain Spirit', 'Patience matters here. Ease your pace.']
       };
       const [title, body] = labels[hazard.type] || ['Hazard Ahead', 'Stay alert and keep moving.'];
@@ -1138,7 +1294,7 @@ export class GameScene {
           <b id="promptTitle"></b>
           <span id="promptBody"></span>
         </div>
-        <div class="status"><span id="timeLabel">00:00</span><span id="progressLabel">0%</span><span id="campLabel">Base Camp</span><span id="climberLabel">3/3 climbers</span><span id="messageLabel">WASD to guide · Space to rest</span></div>
+        <div class="status"><span id="timeLabel">00:00</span><span id="progressLabel">0%</span><span id="campLabel">Base Camp</span><span id="climberLabel">3/3 climbers</span><span id="messageLabel">WASD move · Space jump · C crouch · Shift dodge · F rope · R rest</span></div>
       </section>`;
     this.uiRoot.querySelector('#menuButton').addEventListener('click', () => {
       this.state = 'menu';
@@ -1161,7 +1317,7 @@ export class GameScene {
     this.uiRoot.querySelector('#progressLabel').textContent = `${Math.round(progress)}%`;
     this.uiRoot.querySelector('#campLabel').textContent = camp ? camp.name : 'Base Camp';
     this.uiRoot.querySelector('#climberLabel').textContent = `${this.metrics.climbers}/3 climbers`;
-    this.uiRoot.querySelector('#messageLabel').textContent = this.metrics.message || 'Guide the climbers, conserve oxygen, reach the summit.';
+    this.uiRoot.querySelector('#messageLabel').textContent = this.metrics.message || 'Space jump · C crouch · Shift dodge · F rope caches · R rest.';
     const prompt = this.hudPrompt();
     const promptPanel = this.uiRoot.querySelector('#promptPanel');
     if (promptPanel) {
@@ -1176,8 +1332,9 @@ export class GameScene {
     const reserves = Math.round(this.metrics.oxygen + this.metrics.stamina + this.metrics.morale);
     const restraint = Math.max(0, 160 - this.metrics.hazardHits * 22);
     const campWisdom = this.metrics.campsUsed * 24;
+    const resourcefulness = this.metrics.toolsCollected * 18;
     const speedPressure = success ? Math.max(0, 120 - Math.floor(this.metrics.time * 0.45)) : 0;
-    return Math.max(0, Math.round((success ? 180 : 40) + survival + reserves + restraint + campWisdom + speedPressure));
+    return Math.max(0, Math.round((success ? 180 : 40) + survival + reserves + restraint + campWisdom + resourcefulness + speedPressure));
   }
 
   resultRows(success) {
@@ -1189,6 +1346,7 @@ export class GameScene {
       ['Stamina', `${Math.max(0, Math.round(this.metrics.stamina))}%`],
       ['Morale', `${Math.max(0, Math.round(this.metrics.morale))}%`],
       ['Hazard contacts', this.metrics.hazardHits],
+      ['Caches recovered', this.metrics.toolsCollected],
       ['Camps used', `${this.metrics.campsUsed}/3`]
     ];
   }
