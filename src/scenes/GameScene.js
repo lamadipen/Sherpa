@@ -1309,7 +1309,6 @@ export class GameScene {
   }
 
   renderHud() {
-    const dialogue = this.level.dialogue[0];
     this.uiRoot.innerHTML = `
       <section class="hud">
         <div class="topbar">
@@ -1321,11 +1320,6 @@ export class GameScene {
           <label>Stamina <span id="staminaLabel"></span><i id="staminaBar"></i></label>
           <label>Morale <span id="moraleLabel"></span><i id="moraleBar"></i></label>
         </div>
-        <div class="brief">
-          <b>${dialogue.speaker}</b>
-          <p>${this.t(dialogue)}</p>
-          <small>${this.level.festival}</small>
-        </div>
         <div id="promptPanel" class="prompt hidden">
           <b id="promptTitle"></b>
           <span id="promptBody"></span>
@@ -1335,7 +1329,7 @@ export class GameScene {
           <span>Skill <b id="skillLabel">0</b></span>
           <span id="boostLabel">steady</span>
         </div>
-        <div class="status"><span id="timeLabel">00:00</span><span id="progressLabel">0%</span><span id="campLabel">Base Camp</span><span id="climberLabel">3/3 climbers</span><span id="messageLabel">WASD move · Space jump · C crouch · Shift dodge · F rope · R rest</span></div>
+        <div class="status"><span id="timeLabel">00:00</span><span id="progressLabel">0%</span><span id="climberLabel">3/3</span><span id="messageLabel">Space jump · C crouch · Shift dodge · F rope</span></div>
       </section>`;
     this.uiRoot.querySelector('#menuButton').addEventListener('click', () => {
       this.state = 'menu';
@@ -1353,12 +1347,10 @@ export class GameScene {
     set('stamina', this.metrics.stamina);
     set('morale', this.metrics.morale);
     const progress = Math.max(0, Math.min(100, ((this.player.root.position.z + 88) / this.level.routeLength) * 100));
-    const camp = this.camps?.[this.metrics.campIndex];
     this.uiRoot.querySelector('#timeLabel').textContent = this.formatTime(this.metrics.time);
     this.uiRoot.querySelector('#progressLabel').textContent = `${Math.round(progress)}%`;
-    this.uiRoot.querySelector('#campLabel').textContent = camp ? camp.name : 'Base Camp';
-    this.uiRoot.querySelector('#climberLabel').textContent = `${this.metrics.climbers}/3 climbers`;
-    this.uiRoot.querySelector('#messageLabel').textContent = this.metrics.message || 'Space jump · C crouch · Shift dodge · F rope caches · R rest.';
+    this.uiRoot.querySelector('#climberLabel').textContent = `${this.metrics.climbers}/3`;
+    this.uiRoot.querySelector('#messageLabel').textContent = this.metrics.message || 'Space jump · C crouch · Shift dodge · F rope';
     const comboLabel = this.uiRoot.querySelector('#comboLabel');
     if (comboLabel) {
       comboLabel.textContent = `x${this.metrics.combo}`;

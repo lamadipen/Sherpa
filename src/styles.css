@@ -162,15 +162,15 @@ h2 {
 
 .hud {
   display: grid;
-  grid-template-columns: minmax(280px, 420px) 1fr;
-  gap: 16px;
-  padding: 18px;
+  grid-template-columns: minmax(210px, 260px) auto;
+  gap: 7px;
+  align-items: start;
+  padding: 8px;
   animation: screenFade 320ms ease both;
 }
 
 .topbar,
 .meters,
-.brief,
 .prompt,
 .actionHud,
 .status,
@@ -178,44 +178,55 @@ h2 {
   background: rgba(9, 17, 27, 0.72);
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 8px;
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.22);
-  backdrop-filter: blur(16px);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(12px);
 }
 
 .topbar {
-  grid-column: 1 / -1;
+  grid-column: 1;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 78px;
-  padding: 12px 14px;
+  min-height: 38px;
+  padding: 6px 8px;
 }
 
 .topbar h2 {
+  font-size: 0.82rem;
   margin: 0;
 }
 
-.meters,
-.brief {
-  padding: 14px;
+.topbar button {
+  min-height: 30px;
+  padding: 0 10px;
+  font-size: 0.76rem;
+}
+
+.topbar .eyebrow {
+  display: none;
+}
+
+.meters {
+  grid-column: 1;
+  padding: 7px 8px;
 }
 
 .meters {
   display: grid;
-  gap: 12px;
+  gap: 5px;
 }
 
 .meters label {
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 7px;
-  font-size: 0.82rem;
+  gap: 4px;
+  font-size: 0.7rem;
   font-weight: 800;
 }
 
 .meters i {
   grid-column: 1 / -1;
-  height: 10px;
+  height: 6px;
   overflow: hidden;
   position: relative;
   border-radius: 999px;
@@ -231,33 +242,23 @@ h2 {
   background: linear-gradient(90deg, #53d6a8, #ffcf5a);
 }
 
-.brief {
-  align-self: start;
-  max-width: 420px;
-}
-
-.brief p {
-  color: #eaf2f7;
-  line-height: 1.45;
-  margin-bottom: 8px;
-}
-
 .prompt {
   align-self: start;
   display: grid;
+  grid-column: 1;
   gap: 5px;
   justify-self: start;
-  min-width: min(420px, calc(100vw - 36px));
-  padding: 12px 14px;
+  min-width: min(260px, calc(100vw - 16px));
+  padding: 7px 9px;
 }
 
 .prompt b {
-  font-size: 0.92rem;
+  font-size: 0.78rem;
 }
 
 .prompt span {
   color: #eaf2f7;
-  font-size: 0.84rem;
+  font-size: 0.72rem;
   font-weight: 750;
 }
 
@@ -284,28 +285,29 @@ h2 {
   align-self: start;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  grid-column: 2;
+  gap: 5px;
   justify-self: start;
-  padding: 8px;
+  padding: 5px;
 }
 
 .actionHud span {
-  min-height: 34px;
+  min-height: 26px;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 0 10px;
-  border-radius: 8px;
+  gap: 4px;
+  padding: 0 7px;
+  border-radius: 6px;
   background: rgba(255, 255, 255, 0.1);
   color: #cfe3ee;
-  font-size: 0.78rem;
+  font-size: 0.64rem;
   font-weight: 900;
   text-transform: uppercase;
 }
 
 .actionHud b {
   color: #ffcf5a;
-  font-size: 1rem;
+  font-size: 0.8rem;
 }
 
 .status {
@@ -313,10 +315,16 @@ h2 {
   justify-self: start;
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  padding: 9px 12px;
+  gap: 6px;
+  max-width: min(560px, calc(100vw - 16px));
+  padding: 6px 8px;
   color: #f4f7fb;
-  font-weight: 800;
+  font-size: 0.7rem;
+  font-weight: 850;
+}
+
+.status span:not(:last-child) {
+  color: #ffcf5a;
 }
 
 .result {
