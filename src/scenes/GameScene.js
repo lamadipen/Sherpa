@@ -121,6 +121,8 @@ export class GameScene {
       anchor: this.mat('routeAnchor', '#29343c'),
       routeFlag: this.mat('routeFlag', '#d62839'),
       routeGlow: this.mat('routeGlow', '#ffef9f', 0.46),
+      safeRoute: this.mat('safeRoute', '#35f0c7', 0.64),
+      footprint: this.mat('footprint', '#b8cbd4', 0.58),
       ice: this.mat('ice', '#73c7df', 0.58),
       hazard: this.mat('hazard', '#101927'),
       crevasseEdge: this.mat('crevasseEdge', '#07111c'),
@@ -901,6 +903,16 @@ export class GameScene {
       marker.rotation.y = Math.sin(this.routeProgressAt(z) * Math.PI * 5.4) * 0.7;
       marker.material = i % 3 === 0 ? this.materials.ice : this.materials.pathSnow;
     }
+
+    for (let i = 0; i <= 72; i += 1) {
+      const z = -84 + (level.routeLength / 72) * i;
+      const center = this.routeCenterAt(z);
+      const stepSide = i % 2 === 0 ? -1 : 1;
+      const foot = MeshBuilder.CreateBox(`route-footprint-${i}`, { width: 0.34, height: 0.026, depth: 0.62 }, this.scene);
+      foot.position.set(center + stepSide * 0.42, this.terrainHeightAt(center + stepSide * 0.42, z) + 0.08, z);
+      foot.rotation.y = Math.sin(this.routeProgressAt(z) * Math.PI * 5.4) * 0.42 + stepSide * 0.08;
+      foot.material = this.materials.footprint;
+    }
   }
 
   buildHorizonPeaks() {
@@ -1084,6 +1096,24 @@ export class GameScene {
     warning.rotation.x = Math.PI / 2;
     warning.material = this.materials.hazardMarker;
 
+    const crossing = MeshBuilder.CreateBox('hazard-crevasse-safe-crossing', { width: 1.28, height: 0.045, depth: 2.35 }, this.scene);
+    crossing.parent = root;
+    crossing.position.set(-3.15, 0.2, 0);
+    crossing.rotation.y = 0.06;
+    crossing.material = this.materials.safeRoute;
+
+    [-1, 1].forEach((side) => {
+      const stake = MeshBuilder.CreateCylinder(`hazard-crevasse-route-stake-${side}`, { height: 1.35, diameter: 0.08, tessellation: 8 }, this.scene);
+      stake.parent = root;
+      stake.position.set(-3.15, 0.78, side * 1.75);
+      stake.material = this.materials.anchor;
+
+      const flag = MeshBuilder.CreateBox(`hazard-crevasse-route-flag-${side}`, { width: 0.5, height: 0.26, depth: 0.04 }, this.scene);
+      flag.parent = stake;
+      flag.position.set(0.25, 0.42, 0);
+      flag.material = this.materials.safeRoute;
+    });
+
     [-5.2, -3.4, -1.7, 1.3, 3.1, 5.0].forEach((offset, index) => {
       const crack = MeshBuilder.CreateBox(`hazard-crevasse-finger-${index}`, { width: 2.4, height: 0.055, depth: 0.12 }, this.scene);
       crack.parent = root;
@@ -1144,6 +1174,19 @@ export class GameScene {
     rumble.position.z = -1.2;
     rumble.rotation.x = Math.PI / 2;
     rumble.material = this.materials.hazardMarker;
+
+    [-1, 1].forEach((gateSide) => {
+      const gate = MeshBuilder.CreateCylinder(`hazard-avalanche-route-gate-${gateSide}`, { height: 1.55, diameter: 0.1, tessellation: 8 }, this.scene);
+      gate.parent = root;
+      gate.position.set(-side * 2.9, -0.1, gateSide * 3.4);
+      gate.rotation.z = gateSide * 0.18;
+      gate.material = this.materials.hazardMarker;
+
+      const ribbon = MeshBuilder.CreateBox(`hazard-avalanche-route-ribbon-${gateSide}`, { width: 0.75, height: 0.18, depth: 0.04 }, this.scene);
+      ribbon.parent = gate;
+      ribbon.position.set(0.38, 0.56, 0);
+      ribbon.material = this.materials.hazardMarker;
+    });
 
     return root;
   }
@@ -1394,7 +1437,7 @@ export class GameScene {
       const approaching = dz > 1.5 && dz < 22 && (crevasseRisk?.distance || distance) < 4.8;
       const pulse = 1 + Math.max(0, 1 - Math.abs(dz) / 22) * (0.18 + Math.sin(this.metrics.time * 8) * 0.06);
       hazard.getChildMeshes().forEach((mesh) => {
-        if (mesh.name.includes('approach-crack')) mesh.scaling.setAll(pulse);
+        if (mesh.name.includes('approach-crack') || mesh.name.includes('safe-crossing')) mesh.scaling.setAll(pulse);
         if (mesh.name.includes('warning')) {
           mesh.scaling.x = pulse;
           mesh.scaling.y = pulse;
@@ -1412,6 +1455,10 @@ export class GameScene {
     if (data.type === 'avalanche') {
       const dz = hazard.position.z - this.player.root.position.z;
       const incoming = dz > 8 && dz < 42;
+      const pulse = 1 + (incoming ? 0.18 + Math.sin(this.metrics.time * 9) * 0.08 : 0);
+      hazard.getChildMeshes().forEach((mesh) => {
+        if (mesh.name.includes('route-gate') || mesh.name.includes('route-ribbon')) mesh.scaling.setAll(pulse);
+      });
       if (incoming && !data.warned) {
         data.warned = true;
         this.audio.warning();
