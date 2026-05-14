@@ -58,6 +58,8 @@ export class GameScene {
     this.cameraDanger = 0;
     this.summitTimer = 0;
     this.blizzardPressure = 0;
+    this.comboTimer = 0;
+    this.flowBoostTimer = 0;
     this.audio = new GameAudio();
     this.lang = localStorage.getItem('sherpa.lang') || 'en';
     this.records = JSON.parse(localStorage.getItem('sherpa.records') || '{}');
@@ -292,6 +294,9 @@ export class GameScene {
       campsUsed: 0,
       hazardHits: 0,
       toolsCollected: 0,
+      skillScore: 0,
+      combo: 0,
+      bestCombo: 0,
       climberRisk: 0,
       message: '',
       messageTimer: 0
@@ -301,6 +306,16 @@ export class GameScene {
   setMessage(message, duration = 5) {
     this.metrics.message = message;
     this.metrics.messageTimer = duration;
+  }
+
+  awardAction(label, points = 18, boost = 1.35) {
+    this.metrics.combo = Math.min(12, this.metrics.combo + 1);
+    this.metrics.bestCombo = Math.max(this.metrics.bestCombo, this.metrics.combo);
+    this.metrics.skillScore += Math.round(points * (1 + (this.metrics.combo - 1) * 0.28));
+    this.comboTimer = 4.2;
+    this.flowBoostTimer = Math.max(this.flowBoostTimer, boost);
+    this.metrics.morale = Math.min(100, this.metrics.morale + 1.2);
+    this.setMessage(`${label} · x${this.metrics.combo} flow`, 2.6);
   }
 
   campDefinitions() {
@@ -325,6 +340,8 @@ export class GameScene {
     this.scene.clearColor = Color4.FromHexString(`${this.level.sky}dd`);
     this.scene.fogDensity = BASE_FOG_DENSITY;
     this.blizzardPressure = 0;
+    this.comboTimer = 0;
+    this.flowBoostTimer = 0;
     if (this.snow) this.snow.emitRate = BASE_SNOW_RATE;
     this.clearLevel();
     this.buildMountain();
@@ -604,7 +621,7 @@ export class GameScene {
     this.metrics.stamina = Math.min(100, this.metrics.stamina + 10);
     this.metrics.morale = Math.min(100, this.metrics.morale + 4);
     this.audio.camp();
-    this.setMessage(`Rope catch secured a cache ${Math.round(distance)}m away.`, 4);
+    this.awardAction(`Rope catch ${Math.round(distance)}m`, 24, 1.25);
   }
 
   createSummitCeremony(x, z) {
@@ -946,8 +963,14 @@ export class GameScene {
       this.metrics.messageTimer = Math.max(0, this.metrics.messageTimer - delta);
       if (this.metrics.messageTimer === 0) this.metrics.message = '';
     }
+    if (this.comboTimer > 0) {
+      this.comboTimer = Math.max(0, this.comboTimer - delta);
+      if (this.comboTimer === 0) this.metrics.combo = 0;
+    }
+    this.flowBoostTimer = Math.max(0, this.flowBoostTimer - delta);
     const level = this.level;
     const movementContext = this.movementContextAt(this.player.root.position);
+    movementContext.actionBoost = this.flowBoostTimer > 0 ? 0.14 + Math.min(0.14, this.metrics.combo * 0.018) : 0;
     const jumped = this.input.jumpPressed;
     const dodged = this.input.dodgePressed;
     const toolThrown = this.input.toolPressed;
@@ -1008,6 +1031,7 @@ export class GameScene {
         if (hazard.position.z < this.player.root.position.z - 34) {
           hazard.position.z = this.player.root.position.z + 72;
           hazard.position.x = this.routeCenterAt(hazard.position.z) + data.side * (18 + Math.random() * 6);
+          data.rewarded = false;
         }
         hazard.position.y = this.routeHeightAt(hazard.position.z, hazard.position.x) + 1.15;
         hazard.rotation.y += delta * 2.5 * data.side;
@@ -1039,10 +1063,22 @@ export class GameScene {
 
         if (avoided) {
           data.touching = false;
-          if (!this.metrics.message) {
-            this.setMessage(data.type === 'crevasse' ? 'Clean jump over the crevasse.' : 'Quick dodge out of the avalanche path.', 2.5);
+          if (!data.rewarded) {
+            data.rewarded = true;
+            this.awardAction(data.type === 'crevasse' ? 'Clean crevasse jump' : 'Avalanche dodge', data.type === 'crevasse' ? 20 : 26);
           }
           return;
+        }
+
+        if (data.type === 'blizzard' && actions.crouching && !data.rewarded && pressure > 0.16) {
+          data.rewarded = true;
+          this.awardAction('Low crouch through whiteout', 18, 1.15);
+        }
+
+        if (data.type === 'spirit' && this.input.rest && !data.rewarded && pressure > 0.3) {
+          data.rewarded = true;
+          pressure *= 0.35;
+          this.awardAction('Patient breath', 16, 1);
         }
 
         if (!data.touching) {
@@ -1294,6 +1330,11 @@ export class GameScene {
           <b id="promptTitle"></b>
           <span id="promptBody"></span>
         </div>
+        <div class="actionHud">
+          <span>Flow <b id="comboLabel">x0</b></span>
+          <span>Skill <b id="skillLabel">0</b></span>
+          <span id="boostLabel">steady</span>
+        </div>
         <div class="status"><span id="timeLabel">00:00</span><span id="progressLabel">0%</span><span id="campLabel">Base Camp</span><span id="climberLabel">3/3 climbers</span><span id="messageLabel">WASD move · Space jump · C crouch · Shift dodge · F rope · R rest</span></div>
       </section>`;
     this.uiRoot.querySelector('#menuButton').addEventListener('click', () => {
@@ -1318,6 +1359,12 @@ export class GameScene {
     this.uiRoot.querySelector('#campLabel').textContent = camp ? camp.name : 'Base Camp';
     this.uiRoot.querySelector('#climberLabel').textContent = `${this.metrics.climbers}/3 climbers`;
     this.uiRoot.querySelector('#messageLabel').textContent = this.metrics.message || 'Space jump · C crouch · Shift dodge · F rope caches · R rest.';
+    const comboLabel = this.uiRoot.querySelector('#comboLabel');
+    if (comboLabel) {
+      comboLabel.textContent = `x${this.metrics.combo}`;
+      this.uiRoot.querySelector('#skillLabel').textContent = this.metrics.skillScore;
+      this.uiRoot.querySelector('#boostLabel').textContent = this.flowBoostTimer > 0 ? 'boost' : 'steady';
+    }
     const prompt = this.hudPrompt();
     const promptPanel = this.uiRoot.querySelector('#promptPanel');
     if (promptPanel) {
@@ -1333,8 +1380,9 @@ export class GameScene {
     const restraint = Math.max(0, 160 - this.metrics.hazardHits * 22);
     const campWisdom = this.metrics.campsUsed * 24;
     const resourcefulness = this.metrics.toolsCollected * 18;
+    const style = Math.min(180, this.metrics.skillScore * 0.18);
     const speedPressure = success ? Math.max(0, 120 - Math.floor(this.metrics.time * 0.45)) : 0;
-    return Math.max(0, Math.round((success ? 180 : 40) + survival + reserves + restraint + campWisdom + resourcefulness + speedPressure));
+    return Math.max(0, Math.round((success ? 180 : 40) + survival + reserves + restraint + campWisdom + resourcefulness + style + speedPressure));
   }
 
   resultRows(success) {
@@ -1345,6 +1393,8 @@ export class GameScene {
       ['Oxygen', `${Math.max(0, Math.round(this.metrics.oxygen))}%`],
       ['Stamina', `${Math.max(0, Math.round(this.metrics.stamina))}%`],
       ['Morale', `${Math.max(0, Math.round(this.metrics.morale))}%`],
+      ['Skill score', this.metrics.skillScore],
+      ['Best flow', `x${this.metrics.bestCombo}`],
       ['Hazard contacts', this.metrics.hazardHits],
       ['Caches recovered', this.metrics.toolsCollected],
       ['Camps used', `${this.metrics.campsUsed}/3`]

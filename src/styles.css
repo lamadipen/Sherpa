@@ -172,6 +172,7 @@ h2 {
 .meters,
 .brief,
 .prompt,
+.actionHud,
 .status,
 .result > div {
   background: rgba(9, 17, 27, 0.72);
@@ -277,6 +278,34 @@ h2 {
 
 .hidden {
   display: none;
+}
+
+.actionHud {
+  align-self: start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-self: start;
+  padding: 8px;
+}
+
+.actionHud span {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #cfe3ee;
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.actionHud b {
+  color: #ffcf5a;
+  font-size: 1rem;
 }
 
 .status {

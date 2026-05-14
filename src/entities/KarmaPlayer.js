@@ -173,7 +173,8 @@ export class KarmaPlayer {
       const traversePenalty = 1 - Math.min(0.18, Math.abs(movementContext.sideSlope || 0) * 0.34);
       const icePenalty = 1 - Math.min(0.18, movementContext.icy || 0);
       const jumpPenalty = this.jumpTimer > 0 ? 0.78 : 1;
-      const speedScale = altitudePenalty * uphillPenalty * traversePenalty * icePenalty * jumpPenalty;
+      const actionBoost = 1 + Math.min(0.28, movementContext.actionBoost || 0);
+      const speedScale = altitudePenalty * uphillPenalty * traversePenalty * icePenalty * jumpPenalty * actionBoost;
       this.root.position.addInPlace(move.scale(this.speed * pace * speedScale * delta));
       this.root.position.x = Math.max(-this.lateralLimit, Math.min(this.lateralLimit, this.root.position.x));
       this.root.position.z = Math.max(-88, Math.min(level.routeLength - 88, this.root.position.z));

@@ -89,7 +89,7 @@ npm run preview
 
 ## Gameplay Notes
 
-The goal is to guide Karma's team to the summit without exhausting oxygen, stamina, or morale. Moving quickly can improve summit times, but hazards and altitude make restraint important. Jump crevasses, crouch through whiteouts, dodge avalanche paths, and throw the rope toward side caches for extra supplies. Reaching the checkpoint unlocks one resupply with `E`.
+The goal is to guide Karma's team to the summit without exhausting oxygen, stamina, or morale. Moving quickly can improve summit times, but hazards and altitude make restraint important. Jump crevasses, crouch through whiteouts, dodge avalanche paths, and throw the rope toward side caches for extra supplies. Clean moves build flow combos, add skill score, and give a short pace boost. Reaching the checkpoint unlocks one resupply with `E`.
 
 ## Assets
 
