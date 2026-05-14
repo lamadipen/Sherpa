@@ -128,7 +128,11 @@ export class GameScene {
       checkpoint: this.mat('checkpoint', '#ffcf5a'),
       tool: this.mat('toolPickup', '#2f6f73'),
       toolMetal: this.mat('toolMetal', '#d7e6ec'),
-      toolGlow: this.mat('toolGlow', '#35f0c7', 0.5)
+      toolGlow: this.mat('toolGlow', '#35f0c7', 0.5),
+      oxygenTank: this.mat('oxygenTank', '#4aa8ff'),
+      soup: this.mat('soup', '#b85c38'),
+      cookPot: this.mat('cookPot', '#1f2833'),
+      steam: this.mat('steam', '#e8f5ff', 0.36)
     };
   }
 
@@ -166,6 +170,7 @@ export class GameScene {
     const environmentFiles = this.levels.flatMap((level) => level.environment?.propSet || []);
     const files = [
       'tent_detailedOpen.glb',
+      'tent_detailedClosed.glb',
       'campfire_stones.glb',
       'tree_pineRoundC.glb',
       'stone_tallB.glb',
@@ -403,8 +408,10 @@ export class GameScene {
     this.buildSurroundingMountains();
 
     this.cloneAssetOnRoute('tent_detailedOpen.glb', 'basecamp-tent', this.routeCenterAt(-84) - 8, -84, 1.5, 0.5, 0.4);
+    this.cloneAssetOnRoute('tent_detailedClosed.glb', 'basecamp-campaign-tent', this.routeCenterAt(-84) + 8, -86, 1.85, -0.35, 0.42);
     this.cloneAssetOnRoute('campfire_stones.glb', 'basecamp-fire', this.routeCenterAt(-83) + 5, -83, 1.2, 0, 0.08);
     this.props.push(this.himalayanProps.createLodge('basecamp-lodge', this.routePosition(this.routeCenterAt(-88) - 14, -88, 0.2), { rotationY: -0.36 }));
+    this.createCampDetails('basecamp', this.routeCenterAt(-84) - 2, -84, -1, 1.2);
     this.createExpeditionCamps();
     this.createEnvironmentIdentity();
     this.createToolPickups();
@@ -506,8 +513,10 @@ export class GameScene {
       const side = index % 2 === 0 ? -1 : 1;
       const campX = center + side * 9;
       this.cloneAssetOnRoute('tent_detailedOpen.glb', `route-${camp.id}-tent`, campX, z, 1.05, side * 0.45, 0.35);
+      this.cloneAssetOnRoute('tent_detailedClosed.glb', `route-${camp.id}-campaign-tent`, campX - side * 3.8, z + 1.8, 1.24, side * -0.72, 0.38);
       this.cloneAssetOnRoute('campfire_stones.glb', `route-${camp.id}-stove`, campX + side * 1.9, z - 1.6, 0.7, 0, 0.08);
       this.cloneAssetOnRoute('bridge_wood.glb', `route-${camp.id}-supply-cache`, center, z - 2.4, 0.62, Math.PI / 2, 0.18);
+      this.createCampDetails(`route-${camp.id}`, campX, z, side, 0.9);
 
       const marker = MeshBuilder.CreateCylinder(`route-${camp.id}-marker`, { height: 2.4, diameter: 0.14, tessellation: 8 }, this.scene);
       marker.position.set(campX - side * 1.4, this.terrainHeightAt(campX - side * 1.4, z) + 1.2, z);
@@ -523,6 +532,76 @@ export class GameScene {
       halo.rotation.x = Math.PI / 2;
       halo.material = this.materials.routeGlow;
     });
+  }
+
+  createCampDetails(name, x, z, side = 1, scale = 1) {
+    const root = new TransformNode(`${name}-camp-details`, this.scene);
+    const baseY = this.terrainHeightAt(x, z);
+    root.position.set(x, baseY, z);
+    this.props.push(root);
+
+    this.cloneAssetOnRoute('tent_detailedOpen.glb', `${name}-side-tent`, x - side * 2.6, z + 2.2, 0.72 * scale, side * -0.85, 0.28);
+
+    const place = (mesh, lx, lz, lift = 0) => {
+      mesh.parent = root;
+      mesh.position.set(lx, this.terrainHeightAt(x + lx, z + lz) - baseY + lift, lz);
+      return mesh;
+    };
+
+    [-0.35, 0.05, 0.45].forEach((offset, index) => {
+      const tank = MeshBuilder.CreateCylinder(`${name}-oxygen-tank-${index}`, {
+        height: 0.95 * scale,
+        diameter: 0.22 * scale,
+        tessellation: 14
+      }, this.scene);
+      tank.rotation.z = index === 1 ? 0.1 : -0.08;
+      tank.material = this.materials.oxygenTank;
+      place(tank, side * (1.45 + index * 0.26) * scale, (1.15 + offset) * scale, 0.48 * scale);
+
+      const valve = MeshBuilder.CreateCylinder(`${name}-oxygen-valve-${index}`, {
+        height: 0.08 * scale,
+        diameter: 0.16 * scale,
+        tessellation: 10
+      }, this.scene);
+      valve.material = this.materials.toolMetal;
+      place(valve, side * (1.45 + index * 0.26) * scale, (1.15 + offset) * scale, 0.99 * scale);
+    });
+
+    const stove = MeshBuilder.CreateCylinder(`${name}-soup-stove`, {
+      height: 0.28 * scale,
+      diameter: 0.76 * scale,
+      tessellation: 12
+    }, this.scene);
+    stove.material = this.materials.rock;
+    place(stove, side * -0.45 * scale, -1.4 * scale, 0.14 * scale);
+
+    const pot = MeshBuilder.CreateCylinder(`${name}-soup-pot`, {
+      height: 0.42 * scale,
+      diameterTop: 0.62 * scale,
+      diameterBottom: 0.52 * scale,
+      tessellation: 18
+    }, this.scene);
+    pot.material = this.materials.cookPot;
+    place(pot, side * -0.45 * scale, -1.4 * scale, 0.54 * scale);
+
+    const soup = MeshBuilder.CreateCylinder(`${name}-soup-surface`, {
+      height: 0.035 * scale,
+      diameter: 0.55 * scale,
+      tessellation: 18
+    }, this.scene);
+    soup.material = this.materials.soup;
+    place(soup, side * -0.45 * scale, -1.4 * scale, 0.77 * scale);
+
+    for (let i = 0; i < 3; i += 1) {
+      const steam = MeshBuilder.CreateTorus(`${name}-soup-steam-${i}`, {
+        diameter: (0.28 + i * 0.1) * scale,
+        thickness: 0.018 * scale,
+        tessellation: 16
+      }, this.scene);
+      steam.rotation.x = Math.PI / 2;
+      steam.material = this.materials.steam;
+      place(steam, side * (-0.45 + i * 0.12) * scale, -1.4 * scale, (1.05 + i * 0.24) * scale);
+    }
   }
 
   createToolPickups() {
