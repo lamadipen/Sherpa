@@ -1153,13 +1153,13 @@ export class GameScene {
     const bobY = Math.sin(this.cameraBob) * (isMoving ? 0.22 : 0.06);
     const bobX = Math.sin(this.cameraBob * 0.5) * (isMoving ? 0.16 : 0.04);
     const lookAhead = 7 + progress * 7 + this.cameraDanger * 4 + summitBoost * 8;
-    const height = 3.2 + progress * 2.2 + campBoost * 1.8 + summitBoost * 3.8 + bobY;
+    const height = 2.15 + progress * 1.55 + campBoost * 1.35 + summitBoost * 2.6 + bobY;
     const sideLook = bobX + this.cameraDanger * Math.sin(this.metrics.time * 1.8) * 1.2;
     const target = this.player.root.position.add(new Vector3(sideLook, height, lookAhead));
     this.camera.target = Vector3.Lerp(this.camera.target, target, Math.min(1, delta * (this.cameraDanger > 0.2 ? 4.8 : 3.5)));
-    this.camera.radius = 24 + progress * 8 + this.cameraDanger * 8 + campBoost * 5 + summitBoost * 9;
+    this.camera.radius = 22 + progress * 7 + this.cameraDanger * 7 + campBoost * 4 + summitBoost * 8;
     this.camera.alpha = -Math.PI / 2;
-    this.camera.beta = 1.16 - campBoost * 0.05 - summitBoost * 0.08 + this.cameraDanger * 0.04;
+    this.camera.beta = 1.31 - campBoost * 0.04 - summitBoost * 0.07 + this.cameraDanger * 0.03;
   }
 
   updateSummitMoment(delta) {
