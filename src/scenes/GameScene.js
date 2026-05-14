@@ -365,9 +365,9 @@ export class GameScene {
   campDefinitions() {
     return [
       { id: 'base', name: 'Base Camp', progress: 0, used: true },
-      { id: 'camp1', name: 'Camp I', progress: 0.24, oxygen: 22, stamina: 34, morale: 10, used: false },
-      { id: 'camp2', name: 'Camp II', progress: 0.52, oxygen: 30, stamina: 40, morale: 14, used: false },
-      { id: 'summit-push', name: 'Summit Push', progress: 0.76, oxygen: 24, stamina: 34, morale: 18, used: false }
+      { id: 'camp1', name: 'Camp I', progress: 0.24, oxygen: 24, stamina: 38, morale: 12, used: false },
+      { id: 'camp2', name: 'Camp II', progress: 0.52, oxygen: 32, stamina: 44, morale: 16, used: false },
+      { id: 'summit-push', name: 'Summit Push', progress: 0.76, oxygen: 26, stamina: 38, morale: 20, used: false }
     ];
   }
 
@@ -784,9 +784,9 @@ export class GameScene {
     tool.metadata.collected = true;
     tool.setEnabled(false);
     this.metrics.toolsCollected += 1;
-    this.metrics.oxygen = Math.min(100, this.metrics.oxygen + 7);
-    this.metrics.stamina = Math.min(100, this.metrics.stamina + 10);
-    this.metrics.morale = Math.min(100, this.metrics.morale + 4);
+    this.metrics.oxygen = Math.min(100, this.metrics.oxygen + 9);
+    this.metrics.stamina = Math.min(100, this.metrics.stamina + 13);
+    this.metrics.morale = Math.min(100, this.metrics.morale + 5);
     this.audio.camp();
     this.awardAction(`Rope catch ${Math.round(distance)}m`, 24, 1.25);
   }
@@ -1209,10 +1209,10 @@ export class GameScene {
     const crouching = this.input.crouch;
     const movingForward = this.input.forward;
     this.player.update(this.input, delta, level, movementContext);
-    if (jumped) this.metrics.stamina -= 4.5;
-    if (dodged) this.metrics.stamina -= 3.5;
+    if (jumped) this.metrics.stamina -= 3.6;
+    if (dodged) this.metrics.stamina -= 3;
     if (toolThrown) {
-      this.metrics.stamina -= 5;
+      this.metrics.stamina -= 4;
       this.throwToolLine();
     }
     const routeCenter = this.routeCenterAt(this.player.root.position.z);
@@ -1230,10 +1230,10 @@ export class GameScene {
     const isMoving = this.input.forward || this.input.left || this.input.right || this.input.back;
     const altitudeFactor = Math.max(0.25, (this.player.root.position.z + 88) / level.routeLength);
     this.updateTutorial(altitudeFactor, { jumped, dodged, toolThrown, crouching, movingForward });
-    const summitPressure = Math.max(0, altitudeFactor - 0.72) * 0.55;
-    this.metrics.oxygen -= delta * level.oxygenDrain * (0.2 + altitudeFactor * 0.72 + summitPressure);
-    const slopeCost = 1 + movementContext.steepness * 0.85 + movementContext.icy * 0.28;
-    this.metrics.stamina += delta * (this.input.rest ? 15 : isMoving ? -6.6 * level.staminaDrain * slopeCost : 3.1);
+    const summitPressure = Math.max(0, altitudeFactor - 0.74) * 0.48;
+    this.metrics.oxygen -= delta * level.oxygenDrain * (0.18 + altitudeFactor * 0.66 + summitPressure);
+    const slopeCost = 1 + movementContext.steepness * 0.72 + movementContext.icy * 0.24;
+    this.metrics.stamina += delta * (this.input.rest ? 16.5 : isMoving ? -5.8 * level.staminaDrain * slopeCost : 3.6);
     this.metrics.stamina = Math.max(0, Math.min(100, this.metrics.stamina));
     this.metrics.morale -= delta * (this.metrics.oxygen < 35 ? 1.2 : 0.12);
     if (isMoving && movementContext.steepness > 0.62 && !this.metrics.message) {
@@ -1259,10 +1259,10 @@ export class GameScene {
   updateHazards(delta) {
     let blizzardPressure = 0;
     const hazardDamage = {
-      crevasse: { radius: 4.8, stamina: 28, oxygen: 6, morale: 12 },
-      avalanche: { radius: 5.2, stamina: 32, oxygen: 9, morale: 15 },
-      blizzard: { radius: 5.1, stamina: 13, oxygen: 6.5, morale: 8 },
-      spirit: { radius: 3.5, stamina: 9, oxygen: 3.2, morale: 10 }
+      crevasse: { radius: 4.6, stamina: 22, oxygen: 4.8, morale: 9 },
+      avalanche: { radius: 4.9, stamina: 26, oxygen: 7.2, morale: 12 },
+      blizzard: { radius: 5, stamina: 10, oxygen: 5.2, morale: 6.5 },
+      spirit: { radius: 3.5, stamina: 7.5, oxygen: 2.7, morale: 8.5 }
     };
     this.hazards.forEach((hazard) => {
       const data = hazard.metadata;
@@ -1330,7 +1330,7 @@ export class GameScene {
           return;
         }
 
-        if (data.type === 'crevasse' && crevasseRisk?.fallPressure > 0.38 && this.player.actionHeight < 0.75) {
+        if (data.type === 'crevasse' && crevasseRisk?.fallPressure > 0.48 && this.player.actionHeight < 0.62) {
           this.startCrevasseFall(hazard);
           return;
         }
@@ -1354,8 +1354,8 @@ export class GameScene {
         this.metrics.stamina -= damage.stamina * pressure * delta;
         this.metrics.oxygen -= damage.oxygen * pressure * delta;
         this.metrics.morale -= damage.morale * pressure * delta;
-        this.metrics.climberRisk += pressure * delta * (data.type === 'avalanche' ? 1.7 : data.type === 'crevasse' ? 1.4 : 0.85);
-        if (this.metrics.climberRisk > 8 && this.metrics.climbers > 1) {
+        this.metrics.climberRisk += pressure * delta * (data.type === 'avalanche' ? 1.35 : data.type === 'crevasse' ? 1.12 : 0.68);
+        if (this.metrics.climberRisk > 9.5 && this.metrics.climbers > 1) {
           this.metrics.climbers -= 1;
           this.metrics.climberRisk = 0;
           this.setMessage('A climber turns back. Karma keeps the remaining team moving.', 6);
@@ -1381,8 +1381,8 @@ export class GameScene {
     }
     if (blizzardPressure > 0.25) {
       const crouchShield = this.player.actions.crouching ? 0.38 : 1;
-      this.metrics.stamina -= delta * blizzardPressure * 2.6 * crouchShield;
-      this.metrics.morale -= delta * blizzardPressure * 1.2 * crouchShield;
+      this.metrics.stamina -= delta * blizzardPressure * 2.1 * crouchShield;
+      this.metrics.morale -= delta * blizzardPressure * 0.95 * crouchShield;
     }
     this.blizzardPressure = blizzardPressure;
   }
@@ -1459,8 +1459,8 @@ export class GameScene {
     const along = Math.abs(localX);
     const across = Math.abs(localZ);
     const lengthPressure = Math.max(0, 1 - along / 6.8);
-    const edgePressure = Math.max(0, 1 - across / 2.25) * lengthPressure;
-    const fallPressure = Math.max(0, 1 - across / 0.72) * lengthPressure;
+    const edgePressure = Math.max(0, 1 - across / 2.05) * lengthPressure;
+    const fallPressure = Math.max(0, 1 - across / 0.56) * lengthPressure;
     return {
       distance: 4.8 * (1 - edgePressure),
       fallPressure
