@@ -56,6 +56,7 @@ export class GameScene {
     this.loadedAssets = new Map();
     this.cameraBob = 0;
     this.cameraDanger = 0;
+    this.cameraShake = 0;
     this.summitTimer = 0;
     this.blizzardPressure = 0;
     this.comboTimer = 0;
@@ -327,6 +328,38 @@ export class GameScene {
     this.flowBoostTimer = Math.max(this.flowBoostTimer, boost);
     this.metrics.morale = Math.min(100, this.metrics.morale + 1.2);
     this.setMessage(`${label} · x${this.metrics.combo} flow`, 2.6);
+  }
+
+  impactFeedback(hazard, pressure = 1) {
+    const data = hazard.metadata || {};
+    const strength = Math.min(1.25, 0.45 + pressure);
+    this.cameraShake = Math.max(this.cameraShake, strength);
+    this.comboTimer = 0;
+    this.metrics.combo = 0;
+
+    if (data.type === 'avalanche') {
+      this.player.velocity.x += (data.side || 1) * 7.5 * strength;
+      this.player.velocity.z -= 3.2 * strength;
+      this.player.verticalVelocity = Math.max(this.player.verticalVelocity, 2.4 * strength);
+      this.setMessage('Hit by avalanche. Regain the rope line.', 2.8);
+      return;
+    }
+
+    if (data.type === 'crevasse') {
+      const away = Math.sign(this.player.root.position.z - hazard.position.z || -1);
+      this.player.velocity.z += away * 3.8 * strength;
+      this.player.velocity.x += Math.sign(this.player.root.position.x - hazard.position.x || 1) * 2.4 * strength;
+      this.setMessage('Stumble at the crevasse edge.', 2.4);
+      return;
+    }
+
+    if (data.type === 'blizzard') {
+      this.player.velocity.x += Math.sin(this.metrics.time * 4) * 3.8 * strength;
+      this.setMessage('Whiteout blast. Hold C to stay low.', 2.6);
+      return;
+    }
+
+    this.player.velocity.z -= 2.2 * strength;
   }
 
   campDefinitions() {
@@ -1316,6 +1349,7 @@ export class GameScene {
         if (!data.touching) {
           data.touching = true;
           this.metrics.hazardHits += 1;
+          this.impactFeedback(hazard, pressure);
         }
         this.metrics.stamina -= damage.stamina * pressure * delta;
         this.metrics.oxygen -= damage.oxygen * pressure * delta;
@@ -1446,6 +1480,7 @@ export class GameScene {
     this.player.velocity.set(0, 0, 0);
     this.player.verticalVelocity = -3.5;
     this.player.grounded = false;
+    this.cameraShake = Math.max(this.cameraShake, 1.4);
     this.state = 'falling';
     this.audio.fail();
     this.setMessage('Crevasse fall. The rope team turns back.', 4);
@@ -1502,17 +1537,20 @@ export class GameScene {
     const summitBoost = Math.max(0, (progress - 0.84) / 0.16);
     this.cameraDanger += (hazardBoost - this.cameraDanger) * Math.min(1, delta * 4);
     this.cameraBob += delta * (isMoving ? 7.5 : 2.2);
+    this.cameraShake = Math.max(0, this.cameraShake - delta * 2.8);
 
     const bobY = Math.sin(this.cameraBob) * (isMoving ? 0.22 : 0.06);
     const bobX = Math.sin(this.cameraBob * 0.5) * (isMoving ? 0.16 : 0.04);
+    const shakeX = Math.sin(this.metrics.time * 43) * this.cameraShake * 0.55;
+    const shakeY = Math.sin(this.metrics.time * 37 + 1.2) * this.cameraShake * 0.36;
     const lookAhead = 7 + progress * 7 + this.cameraDanger * 4 + summitBoost * 8;
-    const height = 2.15 + progress * 1.55 + campBoost * 1.35 + summitBoost * 2.6 + bobY;
-    const sideLook = bobX + this.cameraDanger * Math.sin(this.metrics.time * 1.8) * 1.2;
+    const height = 2.15 + progress * 1.55 + campBoost * 1.35 + summitBoost * 2.6 + bobY + shakeY;
+    const sideLook = bobX + shakeX + this.cameraDanger * Math.sin(this.metrics.time * 1.8) * 1.2;
     const target = this.player.root.position.add(new Vector3(sideLook, height, lookAhead));
     this.camera.target = Vector3.Lerp(this.camera.target, target, Math.min(1, delta * (this.cameraDanger > 0.2 ? 4.8 : 3.5)));
     this.camera.radius = 22 + progress * 7 + this.cameraDanger * 7 + campBoost * 4 + summitBoost * 8;
     this.camera.alpha = -Math.PI / 2;
-    this.camera.beta = 1.31 - campBoost * 0.04 - summitBoost * 0.07 + this.cameraDanger * 0.03;
+    this.camera.beta = 1.31 - campBoost * 0.04 - summitBoost * 0.07 + this.cameraDanger * 0.03 + this.cameraShake * 0.025;
   }
 
   updateSummitMoment(delta) {
