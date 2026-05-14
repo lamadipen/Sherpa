@@ -972,11 +972,11 @@ export class GameScene {
   spawnHazards() {
     const level = this.level;
     level.hazards.forEach((type, index) => {
-      const count = type === 'avalanche' ? 4 : 3;
+      const count = type === 'avalanche' ? 5 : type === 'crevasse' ? 4 : 3;
       for (let i = 0; i < count; i += 1) {
         const lane = (i + 0.65 + index * 0.32) / (count + 0.8);
         const z = -70 + level.routeLength * lane;
-        const x = ((i + index) % 2 === 0 ? -1 : 1) * (3 + Math.random() * 6);
+        const x = ((i + index) % 2 === 0 ? -1 : 1) * (type === 'blizzard' ? 3 + Math.random() * 5 : 1.4 + Math.random() * 3.2);
         const hazard = this.createHazard(type, x, z);
         this.hazards.push(hazard);
       }
@@ -997,27 +997,46 @@ export class GameScene {
     root.rotation.y = 0.45 + Math.sin(z * 0.17) * 0.22;
     root.metadata = { type: 'crevasse', routeOffset, speed: 0, phase: Math.random() * 6 };
 
-    const chasm = MeshBuilder.CreateBox('hazard-crevasse-chasm', { width: 8.6, height: 0.08, depth: 0.92 }, this.scene);
+    const chasm = MeshBuilder.CreateBox('hazard-crevasse-chasm', { width: 12.4, height: 0.18, depth: 1.65 }, this.scene);
     chasm.parent = root;
+    chasm.position.y = -0.08;
     chasm.material = this.materials.crevasseEdge;
 
-    const ice = MeshBuilder.CreateBox('hazard-crevasse-ice', { width: 7.8, height: 0.04, depth: 0.32 }, this.scene);
+    const pit = MeshBuilder.CreateBox('hazard-crevasse-pit', { width: 11.6, height: 0.72, depth: 1.12 }, this.scene);
+    pit.parent = root;
+    pit.position.y = -0.44;
+    pit.material = this.materials.hazard;
+
+    const ice = MeshBuilder.CreateBox('hazard-crevasse-ice', { width: 10.6, height: 0.05, depth: 0.48 }, this.scene);
     ice.parent = root;
-    ice.position.y = 0.05;
+    ice.position.y = 0.08;
     ice.material = this.materials.crevasseIce;
 
-    const warning = MeshBuilder.CreateTorus('hazard-crevasse-warning', { diameter: 9.4, thickness: 0.045, tessellation: 30 }, this.scene);
+    const warning = MeshBuilder.CreateTorus('hazard-crevasse-warning', { diameter: 12.6, thickness: 0.08, tessellation: 34 }, this.scene);
     warning.parent = root;
-    warning.position.y = 0.1;
+    warning.position.y = 0.13;
     warning.rotation.x = Math.PI / 2;
     warning.material = this.materials.hazardMarker;
 
-    [-2.9, -1.2, 1.5, 3.2].forEach((offset, index) => {
-      const crack = MeshBuilder.CreateBox(`hazard-crevasse-finger-${index}`, { width: 2.2, height: 0.05, depth: 0.16 }, this.scene);
+    [-5.2, -3.4, -1.7, 1.3, 3.1, 5.0].forEach((offset, index) => {
+      const crack = MeshBuilder.CreateBox(`hazard-crevasse-finger-${index}`, { width: 2.9, height: 0.07, depth: 0.22 }, this.scene);
       crack.parent = root;
-      crack.position.set(offset, 0.06, index % 2 === 0 ? -0.62 : 0.62);
+      crack.position.set(offset, 0.08, index % 2 === 0 ? -1.08 : 1.04);
       crack.rotation.y = index % 2 === 0 ? -0.55 : 0.5;
       crack.material = this.materials.crevasseEdge;
+    });
+
+    [-5.4, -3.7, -2.1, 2.0, 3.8, 5.3].forEach((offset, index) => {
+      const tooth = MeshBuilder.CreateCylinder(`hazard-crevasse-tooth-${index}`, {
+        height: 0.55,
+        diameterTop: 0,
+        diameterBottom: 0.52,
+        tessellation: 4
+      }, this.scene);
+      tooth.parent = root;
+      tooth.position.set(offset, 0.2, index % 2 === 0 ? -0.98 : 0.98);
+      tooth.rotation.y = Math.PI / 4;
+      tooth.material = this.materials.rock;
     });
 
     return root;
@@ -1026,23 +1045,23 @@ export class GameScene {
   createAvalanche(x, z, routeOffset) {
     const side = routeOffset < 0 ? -1 : 1;
     const root = new TransformNode('hazard-avalanche', this.scene);
-    const startX = this.routeCenterAt(z) + side * (17 + Math.random() * 5);
-    root.position.set(startX, this.terrainHeightAt(startX, z) + 1.15, z + 16);
-    root.metadata = { type: 'avalanche', side, speed: 5.4 + Math.random() * 1.8, phase: Math.random() * 6 };
+    const startX = this.routeCenterAt(z) + side * (13 + Math.random() * 4);
+    root.position.set(startX, this.terrainHeightAt(startX, z) + 1.25, z + 18);
+    root.metadata = { type: 'avalanche', side, speed: 7.2 + Math.random() * 2.4, phase: Math.random() * 6 };
 
-    const boulder = MeshBuilder.CreateSphere('hazard-avalanche-core', { diameter: 2.4, segments: 12 }, this.scene);
+    const boulder = MeshBuilder.CreateSphere('hazard-avalanche-core', { diameter: 3.2, segments: 12 }, this.scene);
     boulder.parent = root;
     boulder.material = this.materials.avalanche;
 
-    const warning = MeshBuilder.CreateTorus('hazard-avalanche-warning', { diameter: 5.8, thickness: 0.055, tessellation: 30 }, this.scene);
+    const warning = MeshBuilder.CreateTorus('hazard-avalanche-warning', { diameter: 8.2, thickness: 0.08, tessellation: 32 }, this.scene);
     warning.parent = root;
     warning.rotation.x = Math.PI / 2;
     warning.material = this.materials.hazardMarker;
 
-    for (let i = 0; i < 5; i += 1) {
-      const plume = MeshBuilder.CreateSphere(`hazard-avalanche-plume-${i}`, { diameter: 1.1 + i * 0.18, segments: 8 }, this.scene);
+    for (let i = 0; i < 8; i += 1) {
+      const plume = MeshBuilder.CreateSphere(`hazard-avalanche-plume-${i}`, { diameter: 1.45 + i * 0.2, segments: 8 }, this.scene);
       plume.parent = root;
-      plume.position.set(side * (0.9 + i * 0.28), -0.14 + i * 0.03, 0.8 + i * 0.52);
+      plume.position.set(side * (1.0 + i * 0.34), -0.2 + i * 0.04, 0.9 + i * 0.48);
       plume.material = this.materials.avalancheShadow;
     }
 
@@ -1144,10 +1163,10 @@ export class GameScene {
   updateHazards(delta) {
     let blizzardPressure = 0;
     const hazardDamage = {
-      crevasse: { radius: 3.2, stamina: 15, oxygen: 3.5, morale: 6 },
-      avalanche: { radius: 3.4, stamina: 18, oxygen: 5.5, morale: 9 },
-      blizzard: { radius: 4.2, stamina: 8, oxygen: 4.5, morale: 5 },
-      spirit: { radius: 3.1, stamina: 7, oxygen: 2.5, morale: 8 }
+      crevasse: { radius: 4.8, stamina: 28, oxygen: 6, morale: 12 },
+      avalanche: { radius: 5.2, stamina: 32, oxygen: 9, morale: 15 },
+      blizzard: { radius: 5.1, stamina: 13, oxygen: 6.5, morale: 8 },
+      spirit: { radius: 3.5, stamina: 9, oxygen: 3.2, morale: 10 }
     };
     this.hazards.forEach((hazard) => {
       const data = hazard.metadata;
@@ -1157,8 +1176,8 @@ export class GameScene {
         hazard.position.x += (routeX - hazard.position.x) * Math.min(1, delta * 0.7);
         hazard.position.x += Math.sin(this.metrics.time * 3 + data.phase) * delta * 0.85;
         if (hazard.position.z < this.player.root.position.z - 34) {
-          hazard.position.z = this.player.root.position.z + 72;
-          hazard.position.x = this.routeCenterAt(hazard.position.z) + data.side * (18 + Math.random() * 6);
+          hazard.position.z = this.player.root.position.z + 64;
+          hazard.position.x = this.routeCenterAt(hazard.position.z) + data.side * (12 + Math.random() * 4);
           data.rewarded = false;
         }
         hazard.position.y = this.routeHeightAt(hazard.position.z, hazard.position.x) + 1.15;
@@ -1185,8 +1204,8 @@ export class GameScene {
         let pressure = 1 - distance / damage.radius;
         const actions = this.player.actions;
         const avoided =
-          (data.type === 'crevasse' && actions.jumping) ||
-          (data.type === 'avalanche' && actions.dodging);
+          (data.type === 'crevasse' && actions.jumping && this.player.actionHeight > 1.25) ||
+          (data.type === 'avalanche' && actions.dodging && distance > 1.35);
         if (data.type === 'blizzard' && actions.crouching) pressure *= 0.28;
 
         if (avoided) {
@@ -1393,9 +1412,9 @@ export class GameScene {
     const hazard = this.nearestHazardInfo();
     if (hazard.distance < 9.5) {
       const labels = {
-        avalanche: ['Avalanche Path', 'Dodge out of the slide path with Shift.'],
+        avalanche: ['Avalanche Path', 'Time Shift to dodge the slide path.'],
         blizzard: ['Whiteout Zone', 'Crouch with C and follow the rope.'],
-        crevasse: ['Crevasse Ahead', 'Jump with Space or stay near the rope.'],
+        crevasse: ['Crevasse Ahead', 'Press Space at the edge. Late jumps are safer.'],
         spirit: ['Mountain Spirit', 'Patience matters here. Ease your pace.']
       };
       const [title, body] = labels[hazard.type] || ['Hazard Ahead', 'Stay alert and keep moving.'];
