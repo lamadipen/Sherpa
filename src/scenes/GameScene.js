@@ -1150,6 +1150,7 @@ export class GameScene {
     this.flowBoostTimer = Math.max(0, this.flowBoostTimer - delta);
     const level = this.level;
     const movementContext = this.movementContextAt(this.player.root.position);
+    movementContext.groundY = movementContext.height + 0.7;
     movementContext.actionBoost = this.flowBoostTimer > 0 ? 0.14 + Math.min(0.14, this.metrics.combo * 0.018) : 0;
     const jumped = this.input.jumpPressed;
     const dodged = this.input.dodgePressed;
@@ -1163,7 +1164,15 @@ export class GameScene {
     }
     const routeCenter = this.routeCenterAt(this.player.root.position.z);
     this.player.root.position.x = Math.max(routeCenter - 12, Math.min(routeCenter + 12, this.player.root.position.x));
-    this.player.root.position.y = this.routeHeightAt(this.player.root.position.z, this.player.root.position.x) + 0.7 + this.player.actionHeight;
+    const groundY = this.routeHeightAt(this.player.root.position.z, this.player.root.position.x) + 0.7;
+    if (this.player.root.position.y <= groundY) {
+      this.player.root.position.y = groundY;
+      this.player.verticalVelocity = 0;
+      this.player.grounded = true;
+    } else {
+      this.player.grounded = false;
+    }
+    this.player.actionHeight = Math.max(0, this.player.root.position.y - groundY);
     this.metrics.time += delta;
     const isMoving = this.input.forward || this.input.left || this.input.right || this.input.back;
     const altitudeFactor = Math.max(0.25, (this.player.root.position.z + 88) / level.routeLength);
@@ -1334,6 +1343,9 @@ export class GameScene {
     this.metrics.climbers = Math.max(1, this.metrics.climbers - 1);
     this.fallTimer = 0;
     this.fallTarget = hazard.position.clone();
+    this.player.velocity.set(0, 0, 0);
+    this.player.verticalVelocity = -3.5;
+    this.player.grounded = false;
     this.state = 'falling';
     this.audio.fail();
     this.setMessage('Crevasse fall. The rope team turns back.', 4);

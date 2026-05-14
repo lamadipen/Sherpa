@@ -14,8 +14,10 @@ export class KarmaPlayer {
     this.speed = 12;
     this.lateralLimit = 13;
     this._stepTime = 0;
+    this.velocity = new Vector3(0, 0, 0);
+    this.verticalVelocity = 0;
+    this.grounded = true;
     this.jumpTimer = 0;
-    this.jumpDuration = 0.58;
     this.dodgeTimer = 0;
     this.toolTimer = 0;
     this.actionHeight = 0;
@@ -143,7 +145,11 @@ export class KarmaPlayer {
 
   reset() {
     this.root.position.set(0, 0.7, -82);
+    this.root.rotation.set(0, 0, 0);
     this.root.scaling.setAll(1);
+    this.velocity.set(0, 0, 0);
+    this.verticalVelocity = 0;
+    this.grounded = true;
     this.jumpTimer = 0;
     this.dodgeTimer = 0;
     this.toolTimer = 0;
@@ -152,8 +158,15 @@ export class KarmaPlayer {
   }
 
   update(input, delta, level, movementContext = {}) {
-    if (input.jumpPressed && this.jumpTimer <= 0 && !input.rest) this.jumpTimer = this.jumpDuration;
-    if (input.dodgePressed && this.dodgeTimer <= 0 && !input.rest) this.dodgeTimer = 0.26;
+    if (input.jumpPressed && this.grounded && !input.rest) {
+      this.verticalVelocity = 8.4;
+      this.grounded = false;
+    }
+    if (input.dodgePressed && this.dodgeTimer <= 0 && !input.rest) {
+      this.dodgeTimer = 0.22;
+      const direction = input.left ? -1 : input.right ? 1 : Math.sign(movementContext.cross || 1);
+      this.velocity.x += direction * 8.5;
+    }
     if (input.toolPressed) this.toolTimer = 0.35;
     input.jumpPressed = false;
     input.dodgePressed = false;
@@ -165,50 +178,69 @@ export class KarmaPlayer {
     if (input.left) move.x -= 1;
     if (input.right) move.x += 1;
 
+    const pace = input.rest ? 0.28 : input.crouch ? 0.56 : 1;
+    const altitudePenalty = 1 - Math.min(0.22, Math.max(0, this.root.position.z + 70) / level.routeLength * 0.22);
+    const uphillPenalty = move.z > 0 ? 1 - Math.min(0.48, Math.max(0, movementContext.forwardSlope || 0) * 1.28) : 1;
+    const traversePenalty = 1 - Math.min(0.18, Math.abs(movementContext.sideSlope || 0) * 0.34);
+    const icePenalty = 1 - Math.min(0.18, movementContext.icy || 0);
+    const airbornePenalty = this.grounded ? 1 : 0.78;
+    const actionBoost = 1 + Math.min(0.28, movementContext.actionBoost || 0);
+    const speedScale = altitudePenalty * uphillPenalty * traversePenalty * icePenalty * airbornePenalty * actionBoost;
+    const targetSpeed = this.speed * pace * speedScale;
+
     if (move.lengthSquared() > 0) {
       move.normalize();
-      const pace = input.rest ? 0.28 : input.crouch ? 0.56 : 1;
-      const altitudePenalty = 1 - Math.min(0.22, Math.max(0, this.root.position.z + 70) / level.routeLength * 0.22);
-      const uphillPenalty = move.z > 0 ? 1 - Math.min(0.48, Math.max(0, movementContext.forwardSlope || 0) * 1.28) : 1;
-      const traversePenalty = 1 - Math.min(0.18, Math.abs(movementContext.sideSlope || 0) * 0.34);
-      const icePenalty = 1 - Math.min(0.18, movementContext.icy || 0);
-      const jumpPenalty = this.jumpTimer > 0 ? 0.78 : 1;
-      const actionBoost = 1 + Math.min(0.28, movementContext.actionBoost || 0);
-      const speedScale = altitudePenalty * uphillPenalty * traversePenalty * icePenalty * jumpPenalty * actionBoost;
-      this.root.position.addInPlace(move.scale(this.speed * pace * speedScale * delta));
-      this.root.position.x = Math.max(-this.lateralLimit, Math.min(this.lateralLimit, this.root.position.x));
-      this.root.position.z = Math.max(-88, Math.min(level.routeLength - 88, this.root.position.z));
+      const acceleration = this.grounded ? 34 : 15;
+      this.velocity.x += move.x * acceleration * delta;
+      this.velocity.z += move.z * acceleration * delta;
+      const flatSpeed = Math.hypot(this.velocity.x, this.velocity.z);
+      const maxSpeed = targetSpeed * (this.dodgeTimer > 0 ? 1.35 : 1);
+      if (flatSpeed > maxSpeed) {
+        const scale = maxSpeed / flatSpeed;
+        this.velocity.x *= scale;
+        this.velocity.z *= scale;
+      }
     }
 
     if (this.dodgeTimer > 0) {
-      const direction = input.left ? -1 : input.right ? 1 : Math.sign(movementContext.cross || 1);
-      this.root.position.x += direction * 20 * delta;
-      this.root.position.x = Math.max(-this.lateralLimit, Math.min(this.lateralLimit, this.root.position.x));
       this.dodgeTimer = Math.max(0, this.dodgeTimer - delta);
     }
 
-    if (this.jumpTimer > 0) {
-      const progress = 1 - this.jumpTimer / this.jumpDuration;
-      this.actionHeight = Math.sin(progress * Math.PI) * 2.2;
-      this.jumpTimer = Math.max(0, this.jumpTimer - delta);
-    } else {
-      this.actionHeight = 0;
+    if (!input.rest && movementContext.icy > 0.15) {
+      const slideForce = Math.sign(movementContext.sideSlope || Math.sin(this.root.position.z * 0.13)) * movementContext.icy * (1.4 + Math.abs(movementContext.sideSlope || 0));
+      this.velocity.x += slideForce * delta;
     }
+
+    const friction = this.grounded ? (input.rest ? 10 : input.crouch ? 8 : 6.2) : 1.2;
+    const drag = Math.max(0, 1 - friction * delta);
+    this.velocity.x *= drag;
+    this.velocity.z *= drag;
+
+    this.root.position.x += this.velocity.x * delta;
+    this.root.position.z += this.velocity.z * delta;
+    this.root.position.x = Math.max(-this.lateralLimit, Math.min(this.lateralLimit, this.root.position.x));
+    this.root.position.z = Math.max(-88, Math.min(level.routeLength - 88, this.root.position.z));
+
+    this.verticalVelocity -= 23 * delta;
+    this.root.position.y += this.verticalVelocity * delta;
+    const groundY = movementContext.groundY ?? (Number.isFinite(movementContext.height) ? movementContext.height + 0.7 : this.root.position.y);
+    if (this.root.position.y <= groundY) {
+      this.root.position.y = groundY;
+      this.verticalVelocity = 0;
+      this.grounded = true;
+    } else {
+      this.grounded = false;
+    }
+    this.actionHeight = Math.max(0, this.root.position.y - groundY);
+
     this.toolTimer = Math.max(0, this.toolTimer - delta);
     this.actions = {
-      jumping: this.actionHeight > 0.4,
+      jumping: this.actionHeight > 0.25 || !this.grounded,
       crouching: input.crouch,
       dodging: this.dodgeTimer > 0,
       usingTool: this.toolTimer > 0
     };
     this.root.scaling.y += ((input.crouch ? 0.68 : 1) - this.root.scaling.y) * Math.min(1, delta * 12);
-
-    if (!input.rest && movementContext.icy > 0.15) {
-      const drift = Math.sign(movementContext.sideSlope || Math.sin(this.root.position.z * 0.13)) * movementContext.icy * (0.65 + Math.abs(movementContext.sideSlope || 0)) * delta;
-      const correction = (input.left ? -0.55 : 0) + (input.right ? 0.55 : 0);
-      this.root.position.x += drift + correction * movementContext.icy * delta;
-      this.root.position.x = Math.max(-this.lateralLimit, Math.min(this.lateralLimit, this.root.position.x));
-    }
 
     this._stepTime += delta * (move.lengthSquared() > 0 ? 8 : 2);
     this.meshes.leftLeg.rotation.x = Math.sin(this._stepTime) * 0.3;
@@ -221,5 +253,6 @@ export class KarmaPlayer {
     this.meshes.pole.rotation.z = this.actions.usingTool ? 1.1 : 0.28;
     this.meshes.overheadMarker.rotation.z += delta * 1.8;
     this.root.rotation.y = move.z > 0 ? -move.x * 0.22 : -move.x * 0.12;
+    this.root.rotation.z += (((movementContext.sideSlope || 0) * -0.18 + this.velocity.x * -0.015) - this.root.rotation.z) * Math.min(1, delta * 6);
   }
 }
