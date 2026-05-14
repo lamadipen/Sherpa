@@ -132,7 +132,9 @@ export class GameScene {
       oxygenTank: this.mat('oxygenTank', '#4aa8ff'),
       soup: this.mat('soup', '#b85c38'),
       cookPot: this.mat('cookPot', '#1f2833'),
-      steam: this.mat('steam', '#e8f5ff', 0.36)
+      steam: this.mat('steam', '#e8f5ff', 0.36),
+      roundedTent: this.mat('roundedTent', '#f2c94c'),
+      roundedTentDoor: this.mat('roundedTentDoor', '#17202a')
     };
   }
 
@@ -407,11 +409,8 @@ export class GameScene {
     this.buildHorizonPeaks();
     this.buildSurroundingMountains();
 
-    this.cloneAssetOnRoute('tent_detailedOpen.glb', 'basecamp-tent', this.routeCenterAt(-84) - 8, -84, 1.5, 0.5, 0.4);
-    this.cloneAssetOnRoute('tent_detailedClosed.glb', 'basecamp-campaign-tent', this.routeCenterAt(-84) + 8, -86, 1.85, -0.35, 0.42);
     this.cloneAssetOnRoute('campfire_stones.glb', 'basecamp-fire', this.routeCenterAt(-83) + 5, -83, 1.2, 0, 0.08);
     this.props.push(this.himalayanProps.createLodge('basecamp-lodge', this.routePosition(this.routeCenterAt(-88) - 14, -88, 0.2), { rotationY: -0.36 }));
-    this.createCampDetails('basecamp', this.routeCenterAt(-84) - 2, -84, -1, 1.2);
     this.createExpeditionCamps();
     this.createEnvironmentIdentity();
     this.createToolPickups();
@@ -512,8 +511,8 @@ export class GameScene {
       const center = this.routeCenterAt(z);
       const side = index % 2 === 0 ? -1 : 1;
       const campX = center + side * 9;
-      this.cloneAssetOnRoute('tent_detailedOpen.glb', `route-${camp.id}-tent`, campX, z, 1.05, side * 0.45, 0.35);
-      this.cloneAssetOnRoute('tent_detailedClosed.glb', `route-${camp.id}-campaign-tent`, campX - side * 3.8, z + 1.8, 1.24, side * -0.72, 0.38);
+      this.cloneAssetOnRoute('tent_detailedOpen.glb', `route-${camp.id}-tent`, campX, z, 1.18, side * 0.45, 0.35);
+      this.cloneAssetOnRoute('tent_detailedClosed.glb', `route-${camp.id}-camp-tent`, campX - side * 3.2, z + 1.8, 1.55, side * -0.72, 0.38);
       this.cloneAssetOnRoute('campfire_stones.glb', `route-${camp.id}-stove`, campX + side * 1.9, z - 1.6, 0.7, 0, 0.08);
       this.cloneAssetOnRoute('bridge_wood.glb', `route-${camp.id}-supply-cache`, center, z - 2.4, 0.62, Math.PI / 2, 0.18);
       this.createCampDetails(`route-${camp.id}`, campX, z, side, 0.9);
@@ -540,7 +539,8 @@ export class GameScene {
     root.position.set(x, baseY, z);
     this.props.push(root);
 
-    this.cloneAssetOnRoute('tent_detailedOpen.glb', `${name}-side-tent`, x - side * 2.6, z + 2.2, 0.72 * scale, side * -0.85, 0.28);
+    this.cloneAssetOnRoute('tent_detailedOpen.glb', `${name}-side-tent`, x - side * 2.6, z + 2.2, 0.82 * scale, side * -0.85, 0.28);
+    this.createRoundedCampTent(root, name, side * -3.55 * scale, 2.65 * scale, side, scale);
 
     const place = (mesh, lx, lz, lift = 0) => {
       mesh.parent = root;
@@ -602,6 +602,55 @@ export class GameScene {
       steam.material = this.materials.steam;
       place(steam, side * (-0.45 + i * 0.12) * scale, -1.4 * scale, (1.05 + i * 0.24) * scale);
     }
+  }
+
+  createRoundedCampTent(parent, name, lx, lz, side = 1, scale = 1) {
+    const tent = new TransformNode(`${name}-rounded-tent`, this.scene);
+    tent.parent = parent;
+    tent.position.set(lx, 0.54 * scale, lz);
+    tent.rotation.y = side * 0.48;
+
+    const dome = MeshBuilder.CreateSphere(`${name}-rounded-tent-dome`, {
+      diameter: 2.25 * scale,
+      segments: 18
+    }, this.scene);
+    dome.parent = tent;
+    dome.scaling.set(1.35, 0.58, 0.95);
+    dome.material = this.materials.roundedTent;
+
+    const skirt = MeshBuilder.CreateCylinder(`${name}-rounded-tent-skirt`, {
+      height: 0.18 * scale,
+      diameter: 2.7 * scale,
+      tessellation: 18
+    }, this.scene);
+    skirt.parent = tent;
+    skirt.position.y = -0.45 * scale;
+    skirt.scaling.z = 0.72;
+    skirt.material = this.materials.roundedTentDoor;
+
+    const door = MeshBuilder.CreateBox(`${name}-rounded-tent-door`, {
+      width: 0.52 * scale,
+      height: 0.8 * scale,
+      depth: 0.08 * scale
+    }, this.scene);
+    door.parent = tent;
+    door.position.set(-1.55 * scale, -0.02 * scale, 0);
+    door.rotation.z = -0.08;
+    door.material = this.materials.roundedTentDoor;
+
+    const seam = MeshBuilder.CreateTorus(`${name}-rounded-tent-seam`, {
+      diameter: 2.15 * scale,
+      thickness: 0.025 * scale,
+      tessellation: 24
+    }, this.scene);
+    seam.parent = tent;
+    seam.position.y = 0.08 * scale;
+    seam.rotation.x = Math.PI / 2;
+    seam.scaling.x = 1.35;
+    seam.scaling.y = 0.75;
+    seam.material = this.materials.roundedTentDoor;
+
+    return tent;
   }
 
   createToolPickups() {
