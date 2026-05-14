@@ -62,6 +62,8 @@ export class GameScene {
     this.flowBoostTimer = 0;
     this.fallTimer = 0;
     this.fallTarget = null;
+    this.tutorialSeen = new Set();
+    this.currentTutorialPrompt = null;
     this.audio = new GameAudio();
     this.lang = localStorage.getItem('sherpa.lang') || 'en';
     this.records = JSON.parse(localStorage.getItem('sherpa.records') || '{}');
@@ -351,6 +353,8 @@ export class GameScene {
     this.blizzardPressure = 0;
     this.comboTimer = 0;
     this.flowBoostTimer = 0;
+    this.tutorialSeen = new Set();
+    this.currentTutorialPrompt = null;
     if (this.snow) this.snow.emitRate = BASE_SNOW_RATE;
     this.clearLevel();
     this.buildMountain();
@@ -1169,6 +1173,8 @@ export class GameScene {
     const jumped = this.input.jumpPressed;
     const dodged = this.input.dodgePressed;
     const toolThrown = this.input.toolPressed;
+    const crouching = this.input.crouch;
+    const movingForward = this.input.forward;
     this.player.update(this.input, delta, level, movementContext);
     if (jumped) this.metrics.stamina -= 4.5;
     if (dodged) this.metrics.stamina -= 3.5;
@@ -1190,6 +1196,7 @@ export class GameScene {
     this.metrics.time += delta;
     const isMoving = this.input.forward || this.input.left || this.input.right || this.input.back;
     const altitudeFactor = Math.max(0.25, (this.player.root.position.z + 88) / level.routeLength);
+    this.updateTutorial(altitudeFactor, { jumped, dodged, toolThrown, crouching, movingForward });
     const summitPressure = Math.max(0, altitudeFactor - 0.72) * 0.55;
     this.metrics.oxygen -= delta * level.oxygenDrain * (0.2 + altitudeFactor * 0.72 + summitPressure);
     const slopeCost = 1 + movementContext.steepness * 0.85 + movementContext.icy * 0.28;
@@ -1377,6 +1384,36 @@ export class GameScene {
         this.setMessage('Avalanche rumble. Watch the side slope, then dodge.', 3.2);
       }
     }
+  }
+
+  updateTutorial(progress, actions) {
+    if (this.level?.id !== 'everest') {
+      this.currentTutorialPrompt = null;
+      return;
+    }
+
+    const completions = [
+      ['move', actions.movingForward || progress > 0.035],
+      ['jump', actions.jumped],
+      ['crouch', actions.crouching],
+      ['dodge', actions.dodged],
+      ['rope', actions.toolThrown || this.metrics.toolsCollected > 0],
+      ['camp', this.metrics.campsUsed > 0 || progress > 0.31]
+    ];
+    completions.forEach(([id, done]) => {
+      if (done) this.tutorialSeen.add(id);
+    });
+
+    const steps = [
+      { id: 'move', min: 0, max: 0.08, title: 'Find The Rope', body: 'Hold W to climb. Use A/D to stay near the fixed rope.' },
+      { id: 'jump', min: 0.04, max: 0.2, title: 'Crevasse Timing', body: 'Press Space at the dark slit. Jumping too early can still drop you short.' },
+      { id: 'crouch', min: 0.1, max: 0.28, title: 'Whiteout Posture', body: 'Hold C when snow closes in. Crouching saves stamina and morale.' },
+      { id: 'dodge', min: 0.16, max: 0.34, title: 'Side Step', body: 'Tap Shift to dodge sideways. Later peaks use this for avalanches.' },
+      { id: 'rope', min: 0.12, max: 0.38, title: 'Recover Supplies', body: 'When a glowing cache is near, press F to throw the rope.' },
+      { id: 'camp', min: 0.2, max: 0.34, title: 'Use Camp', body: 'At Camp I, press E once to restore oxygen, stamina, and morale.' }
+    ];
+
+    this.currentTutorialPrompt = steps.find((step) => progress >= step.min && progress <= step.max && !this.tutorialSeen.has(step.id)) || null;
   }
 
   crevasseRisk(hazard) {
@@ -1571,6 +1608,7 @@ export class GameScene {
       const camp = this.camps[this.metrics.campIndex];
       return { kind: 'camp', title: camp?.name || 'Camp Reached', body: 'Press E to resupply oxygen, stamina, and morale.' };
     }
+    if (this.currentTutorialPrompt) return { kind: 'tutorial', ...this.currentTutorialPrompt };
     if (this.metrics.oxygen < 24) return { kind: 'danger', title: 'Low Oxygen', body: 'Slow down and look for the next camp.' };
     if (this.metrics.stamina < 20) return { kind: 'warning', title: 'Low Stamina', body: 'Hold R to rest before pushing higher.' };
     if (this.metrics.morale < 26) return { kind: 'warning', title: 'Morale Falling', body: 'Avoid hazards and conserve the team.' };
