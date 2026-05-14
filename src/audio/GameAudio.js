@@ -98,6 +98,11 @@ export class GameAudio {
     this.tone(164, 0.22, 0.04, 'triangle', 0.09);
   }
 
+  warning() {
+    this.tone(96, 0.18, 0.045, 'triangle');
+    this.tone(72, 0.32, 0.035, 'sine', 0.08);
+  }
+
   camp() {
     [392, 494, 587].forEach((frequency, index) => this.tone(frequency, 0.24, 0.055, 'sine', index * 0.1));
   }

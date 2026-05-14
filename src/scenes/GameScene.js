@@ -997,7 +997,7 @@ export class GameScene {
     const root = new TransformNode('hazard-crevasse', this.scene);
     root.position.set(x, this.terrainHeightAt(x, z) + 0.08, z);
     root.rotation.y = 0.45 + Math.sin(z * 0.17) * 0.22;
-    root.metadata = { type: 'crevasse', routeOffset, speed: 0, phase: Math.random() * 6 };
+    root.metadata = { type: 'crevasse', routeOffset, speed: 0, phase: Math.random() * 6, warned: false };
 
     const voidFloor = MeshBuilder.CreateBox('hazard-crevasse-black-depth', { width: 13.4, height: 0.18, depth: 1.05 }, this.scene);
     voidFloor.parent = root;
@@ -1055,6 +1055,14 @@ export class GameScene {
       crack.material = this.materials.crevasseEdge;
     });
 
+    [-3.8, -1.6, 1.4, 3.7].forEach((offset, index) => {
+      const approach = MeshBuilder.CreateBox(`hazard-crevasse-approach-crack-${index}`, { width: 2.8, height: 0.045, depth: 0.1 }, this.scene);
+      approach.parent = root;
+      approach.position.set(offset, 0.17, index % 2 === 0 ? -3.1 : 3.0);
+      approach.rotation.y = index % 2 === 0 ? 0.58 : -0.52;
+      approach.material = this.materials.crevasseEdge;
+    });
+
     [-5.4, -3.7, -2.1, 2.0, 3.8, 5.3].forEach((offset, index) => {
       const tooth = MeshBuilder.CreateCylinder(`hazard-crevasse-tooth-${index}`, {
         height: 0.55,
@@ -1076,7 +1084,7 @@ export class GameScene {
     const root = new TransformNode('hazard-avalanche', this.scene);
     const startX = this.routeCenterAt(z) + side * (13 + Math.random() * 4);
     root.position.set(startX, this.terrainHeightAt(startX, z) + 1.25, z + 18);
-    root.metadata = { type: 'avalanche', side, speed: 7.2 + Math.random() * 2.4, phase: Math.random() * 6 };
+    root.metadata = { type: 'avalanche', side, speed: 7.2 + Math.random() * 2.4, phase: Math.random() * 6, warned: false, warningPulse: 0 };
 
     const boulder = MeshBuilder.CreateSphere('hazard-avalanche-core', { diameter: 3.2, segments: 12 }, this.scene);
     boulder.parent = root;
@@ -1093,6 +1101,12 @@ export class GameScene {
       plume.position.set(side * (1.0 + i * 0.34), -0.2 + i * 0.04, 0.9 + i * 0.48);
       plume.material = this.materials.avalancheShadow;
     }
+
+    const rumble = MeshBuilder.CreateTorus('hazard-avalanche-rumble-ring', { diameter: 10.4, thickness: 0.05, tessellation: 36 }, this.scene);
+    rumble.parent = root;
+    rumble.position.z = -1.2;
+    rumble.rotation.x = Math.PI / 2;
+    rumble.material = this.materials.hazardMarker;
 
     return root;
   }
@@ -1213,6 +1227,7 @@ export class GameScene {
     this.hazards.forEach((hazard) => {
       const data = hazard.metadata;
       if (data.type === 'avalanche') {
+        data.warningPulse += delta * 5.5;
         hazard.position.z -= delta * (data.speed + this.level.difficulty * 1.2);
         const routeX = this.routeCenterAt(hazard.position.z);
         hazard.position.x += (routeX - hazard.position.x) * Math.min(1, delta * 0.7);
@@ -1221,9 +1236,18 @@ export class GameScene {
           hazard.position.z = this.player.root.position.z + 64;
           hazard.position.x = this.routeCenterAt(hazard.position.z) + data.side * (12 + Math.random() * 4);
           data.rewarded = false;
+          data.warned = false;
         }
         hazard.position.y = this.routeHeightAt(hazard.position.z, hazard.position.x) + 1.15;
         hazard.rotation.y += delta * 2.5 * data.side;
+        hazard.getChildMeshes().forEach((mesh) => {
+          if (mesh.name.includes('rumble-ring') || mesh.name.includes('warning')) {
+            mesh.scaling.setAll(1 + Math.sin(data.warningPulse) * 0.12);
+          }
+          if (mesh.name.includes('plume')) {
+            mesh.scaling.setAll(1 + Math.max(0, 1 - Math.abs(hazard.position.z - this.player.root.position.z) / 38) * 0.45);
+          }
+        });
       } else if (data.type === 'spirit') {
         hazard.rotation.y += delta * 1.8;
         hazard.position.x = this.routeCenterAt(hazard.position.z) + data.routeOffset;
@@ -1239,6 +1263,7 @@ export class GameScene {
 
       const crevasseRisk = data.type === 'crevasse' ? this.crevasseRisk(hazard) : null;
       const distance = crevasseRisk ? crevasseRisk.distance : Vector3.Distance(hazard.position, this.player.root.position);
+      this.updateHazardTelegraph(hazard, distance, crevasseRisk);
       if (data.type === 'blizzard') {
         blizzardPressure = Math.max(blizzardPressure, Math.max(0, 1 - distance / 18));
       }
@@ -1255,7 +1280,12 @@ export class GameScene {
           data.touching = false;
           if (!data.rewarded) {
             data.rewarded = true;
-            this.awardAction(data.type === 'crevasse' ? 'Clean crevasse jump' : 'Avalanche dodge', data.type === 'crevasse' ? 20 : 26);
+            const clean = data.type === 'crevasse'
+              ? this.player.actionHeight > 1.45 && (crevasseRisk?.fallPressure || 0) < 0.62
+              : distance > 2.8;
+            this.awardAction(data.type === 'crevasse'
+              ? clean ? 'Clean crevasse jump' : 'Late crevasse save'
+              : clean ? 'Clean avalanche dodge' : 'Late avalanche dodge', clean ? 28 : 16);
           }
           return;
         }
@@ -1314,6 +1344,39 @@ export class GameScene {
       this.metrics.morale -= delta * blizzardPressure * 1.2 * crouchShield;
     }
     this.blizzardPressure = blizzardPressure;
+  }
+
+  updateHazardTelegraph(hazard, distance, crevasseRisk = null) {
+    const data = hazard.metadata || {};
+    if (data.type === 'crevasse') {
+      const dz = hazard.position.z - this.player.root.position.z;
+      const approaching = dz > 1.5 && dz < 22 && (crevasseRisk?.distance || distance) < 4.8;
+      const pulse = 1 + Math.max(0, 1 - Math.abs(dz) / 22) * (0.18 + Math.sin(this.metrics.time * 8) * 0.06);
+      hazard.getChildMeshes().forEach((mesh) => {
+        if (mesh.name.includes('approach-crack')) mesh.scaling.setAll(pulse);
+        if (mesh.name.includes('warning')) {
+          mesh.scaling.x = pulse;
+          mesh.scaling.y = pulse;
+          mesh.scaling.z = 0.32;
+        }
+      });
+      if (approaching && !data.warned) {
+        data.warned = true;
+        this.audio.warning();
+        this.setMessage('Crevasse ahead. Jump at the dark slit, not before it.', 3.2);
+      }
+      if (dz < -8) data.warned = false;
+    }
+
+    if (data.type === 'avalanche') {
+      const dz = hazard.position.z - this.player.root.position.z;
+      const incoming = dz > 8 && dz < 42;
+      if (incoming && !data.warned) {
+        data.warned = true;
+        this.audio.warning();
+        this.setMessage('Avalanche rumble. Watch the side slope, then dodge.', 3.2);
+      }
+    }
   }
 
   crevasseRisk(hazard) {
