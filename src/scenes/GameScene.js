@@ -60,6 +60,8 @@ export class GameScene {
     this.blizzardPressure = 0;
     this.comboTimer = 0;
     this.flowBoostTimer = 0;
+    this.fallTimer = 0;
+    this.fallTarget = null;
     this.audio = new GameAudio();
     this.lang = localStorage.getItem('sherpa.lang') || 'en';
     this.records = JSON.parse(localStorage.getItem('sherpa.records') || '{}');
@@ -997,31 +999,58 @@ export class GameScene {
     root.rotation.y = 0.45 + Math.sin(z * 0.17) * 0.22;
     root.metadata = { type: 'crevasse', routeOffset, speed: 0, phase: Math.random() * 6 };
 
-    const chasm = MeshBuilder.CreateBox('hazard-crevasse-chasm', { width: 12.4, height: 0.18, depth: 1.65 }, this.scene);
-    chasm.parent = root;
-    chasm.position.y = -0.08;
-    chasm.material = this.materials.crevasseEdge;
+    const voidFloor = MeshBuilder.CreateBox('hazard-crevasse-black-depth', { width: 13.4, height: 0.18, depth: 1.05 }, this.scene);
+    voidFloor.parent = root;
+    voidFloor.position.y = -1.62;
+    voidFloor.material = this.materials.hazard;
 
-    const pit = MeshBuilder.CreateBox('hazard-crevasse-pit', { width: 11.6, height: 0.72, depth: 1.12 }, this.scene);
-    pit.parent = root;
-    pit.position.y = -0.44;
-    pit.material = this.materials.hazard;
+    [-1, 1].forEach((side) => {
+      const iceWall = MeshBuilder.CreateBox(`hazard-crevasse-ice-wall-${side}`, { width: 13.1, height: 2.65, depth: 0.22 }, this.scene);
+      iceWall.parent = root;
+      iceWall.position.set(0, -0.72, side * 0.56);
+      iceWall.rotation.x = side * 0.08;
+      iceWall.material = this.materials.crevasseIce;
 
-    const ice = MeshBuilder.CreateBox('hazard-crevasse-ice', { width: 10.6, height: 0.05, depth: 0.48 }, this.scene);
-    ice.parent = root;
-    ice.position.y = 0.08;
-    ice.material = this.materials.crevasseIce;
+      const shadowEdge = MeshBuilder.CreateBox(`hazard-crevasse-shadow-edge-${side}`, { width: 13.2, height: 0.08, depth: 0.16 }, this.scene);
+      shadowEdge.parent = root;
+      shadowEdge.position.set(0, 0.03, side * 0.38);
+      shadowEdge.material = this.materials.crevasseEdge;
+
+      const snowLip = MeshBuilder.CreateBox(`hazard-crevasse-snow-lip-${side}`, { width: 13.4, height: 0.2, depth: 0.48 }, this.scene);
+      snowLip.parent = root;
+      snowLip.position.set(0, 0.1, side * 0.88);
+      snowLip.rotation.x = side * -0.12;
+      snowLip.material = this.materials.pathSnow;
+
+      for (let i = 0; i < 5; i += 1) {
+        const stripe = MeshBuilder.CreateBox(`hazard-crevasse-ice-stripe-${side}-${i}`, {
+          width: 12.5 - i * 0.35,
+          height: 0.035,
+          depth: 0.025
+        }, this.scene);
+        stripe.parent = root;
+        stripe.position.set(Math.sin(i * 1.6) * 0.26, -0.05 - i * 0.38, side * 0.43);
+        stripe.rotation.y = Math.sin(i) * 0.08;
+        stripe.material = i % 2 === 0 ? this.materials.pathSnow : this.materials.crevasseEdge;
+      }
+    });
+
+    const blackMouth = MeshBuilder.CreateBox('hazard-crevasse-open-mouth', { width: 12.9, height: 0.06, depth: 0.78 }, this.scene);
+    blackMouth.parent = root;
+    blackMouth.position.y = 0.045;
+    blackMouth.material = this.materials.hazard;
 
     const warning = MeshBuilder.CreateTorus('hazard-crevasse-warning', { diameter: 12.6, thickness: 0.08, tessellation: 34 }, this.scene);
     warning.parent = root;
-    warning.position.y = 0.13;
+    warning.position.y = 0.16;
+    warning.scaling.z = 0.32;
     warning.rotation.x = Math.PI / 2;
     warning.material = this.materials.hazardMarker;
 
     [-5.2, -3.4, -1.7, 1.3, 3.1, 5.0].forEach((offset, index) => {
-      const crack = MeshBuilder.CreateBox(`hazard-crevasse-finger-${index}`, { width: 2.9, height: 0.07, depth: 0.22 }, this.scene);
+      const crack = MeshBuilder.CreateBox(`hazard-crevasse-finger-${index}`, { width: 2.4, height: 0.055, depth: 0.12 }, this.scene);
       crack.parent = root;
-      crack.position.set(offset, 0.08, index % 2 === 0 ? -1.08 : 1.04);
+      crack.position.set(offset, 0.13, index % 2 === 0 ? -1.18 : 1.14);
       crack.rotation.y = index % 2 === 0 ? -0.55 : 0.5;
       crack.material = this.materials.crevasseEdge;
     });
@@ -1103,6 +1132,10 @@ export class GameScene {
     const delta = this.engine.getDeltaTime() / 1000;
     if (this.state === 'summit') {
       this.updateSummitMoment(delta);
+      return;
+    }
+    if (this.state === 'falling') {
+      this.updateCrevasseFall(delta);
       return;
     }
     if (this.state !== 'playing') return;
@@ -1195,7 +1228,8 @@ export class GameScene {
         });
       }
 
-      const distance = Vector3.Distance(hazard.position, this.player.root.position);
+      const crevasseRisk = data.type === 'crevasse' ? this.crevasseRisk(hazard) : null;
+      const distance = crevasseRisk ? crevasseRisk.distance : Vector3.Distance(hazard.position, this.player.root.position);
       if (data.type === 'blizzard') {
         blizzardPressure = Math.max(blizzardPressure, Math.max(0, 1 - distance / 18));
       }
@@ -1204,7 +1238,7 @@ export class GameScene {
         let pressure = 1 - distance / damage.radius;
         const actions = this.player.actions;
         const avoided =
-          (data.type === 'crevasse' && actions.jumping && this.player.actionHeight > 1.25) ||
+          (data.type === 'crevasse' && actions.jumping && this.player.actionHeight > 0.85) ||
           (data.type === 'avalanche' && actions.dodging && distance > 1.35);
         if (data.type === 'blizzard' && actions.crouching) pressure *= 0.28;
 
@@ -1214,6 +1248,11 @@ export class GameScene {
             data.rewarded = true;
             this.awardAction(data.type === 'crevasse' ? 'Clean crevasse jump' : 'Avalanche dodge', data.type === 'crevasse' ? 20 : 26);
           }
+          return;
+        }
+
+        if (data.type === 'crevasse' && crevasseRisk?.fallPressure > 0.38 && this.player.actionHeight < 0.75) {
+          this.startCrevasseFall(hazard);
           return;
         }
 
@@ -1266,6 +1305,61 @@ export class GameScene {
       this.metrics.morale -= delta * blizzardPressure * 1.2 * crouchShield;
     }
     this.blizzardPressure = blizzardPressure;
+  }
+
+  crevasseRisk(hazard) {
+    const dx = this.player.root.position.x - hazard.position.x;
+    const dz = this.player.root.position.z - hazard.position.z;
+    const angle = -(hazard.rotation.y || 0);
+    const localX = dx * Math.cos(angle) - dz * Math.sin(angle);
+    const localZ = dx * Math.sin(angle) + dz * Math.cos(angle);
+    const along = Math.abs(localX);
+    const across = Math.abs(localZ);
+    const lengthPressure = Math.max(0, 1 - along / 6.8);
+    const edgePressure = Math.max(0, 1 - across / 2.25) * lengthPressure;
+    const fallPressure = Math.max(0, 1 - across / 0.72) * lengthPressure;
+    return {
+      distance: 4.8 * (1 - edgePressure),
+      fallPressure
+    };
+  }
+
+  startCrevasseFall(hazard) {
+    if (this.state !== 'playing') return;
+    const data = hazard.metadata || {};
+    data.touching = true;
+    this.metrics.hazardHits += 1;
+    this.metrics.morale = Math.max(0, this.metrics.morale - 18);
+    this.metrics.stamina = Math.max(0, this.metrics.stamina - 22);
+    this.metrics.climbers = Math.max(1, this.metrics.climbers - 1);
+    this.fallTimer = 0;
+    this.fallTarget = hazard.position.clone();
+    this.state = 'falling';
+    this.audio.fail();
+    this.setMessage('Crevasse fall. The rope team turns back.', 4);
+  }
+
+  updateCrevasseFall(delta) {
+    this.fallTimer += delta;
+    const target = this.fallTarget || this.player.root.position;
+    const progress = Math.min(1, this.fallTimer / 1.45);
+    const sink = progress * progress * 5.2;
+    this.player.root.position.x += (target.x - this.player.root.position.x) * Math.min(1, delta * 6);
+    this.player.root.position.z += (target.z - this.player.root.position.z) * Math.min(1, delta * 6);
+    this.player.root.position.y = this.terrainHeightAt(target.x, target.z) + 0.7 - sink;
+    this.player.root.rotation.x += (0.65 - this.player.root.rotation.x) * Math.min(1, delta * 5);
+    this.player.root.scaling.y += (0.72 - this.player.root.scaling.y) * Math.min(1, delta * 5);
+
+    const cameraTarget = new Vector3(target.x, this.terrainHeightAt(target.x, target.z) + 0.6 - sink * 0.35, target.z);
+    this.camera.target = Vector3.Lerp(this.camera.target, cameraTarget, Math.min(1, delta * 4));
+    this.camera.radius += (17 - this.camera.radius) * Math.min(1, delta * 3);
+    this.camera.beta += (1.22 - this.camera.beta) * Math.min(1, delta * 3);
+    this.paintHud();
+
+    if (this.fallTimer > 1.55) {
+      this.state = 'failed';
+      this.renderResult(false);
+    }
   }
 
   nearestHazardInfo() {
